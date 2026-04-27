@@ -1,0 +1,23 @@
+# 敏感配置（含密码，绝对不能提交）
+.env
+
+# 用户数据（个人财务数据，不应进入仓库）
+data.json
+
+# pm2 & 进程管理
+ecosystem.config.js
+logs/
+.pm2/
+
+# brainstorm 临时文件
+.superpowers/
+
+# macOS 系统文件
+.DS_Store
+**/.DS_Store
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
