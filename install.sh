@@ -40,7 +40,7 @@ fi
 # ── 3. 写入 .env 文件 ─────────────────────────────────────────
 cat > "$ENV_FILE" << ENVEOF
 PORT=${PORT}
-HOST=127.0.0.1
+HOST=0.0.0.0
 ENVEOF
 chmod 600 "$ENV_FILE"
 info ".env 文件已写入"
@@ -122,11 +122,13 @@ else
 fi
 
 # ── 完成 ──────────────────────────────────────────────────────
+LAN_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "查看 ifconfig")
 echo ""
 echo "  ============================================"
 echo "  ✅ 部署完成！"
 echo ""
-echo "  📍 访问地址：http://127.0.0.1:${PORT}"
+echo "  📍 本机访问：http://127.0.0.1:${PORT}"
+echo "  🌐 局域网访问：http://${LAN_IP}:${PORT}"
 echo ""
 echo "  📋 常用命令："
 echo "     pm2 status              # 查看状态"
