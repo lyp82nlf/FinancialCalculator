@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>个人财务分配器</title>
+<title>个人财务分配器 - 资金合并结算版</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -50,132 +50,260 @@ header{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:40px
 .section-label{font-family:var(--font-mono);font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;color:var(--ink-light);margin-bottom:12px;display:flex;align-items:center;gap:8px}
 .section-label::after{content:'';flex:1;height:1px;background:var(--border)}
 
-/* Income input */
-.income-wrap{margin-bottom:40px}
-.income-row{display:flex;align-items:center;gap:0;background:var(--card);border:1.5px solid var(--ink);border-radius:var(--radius);overflow:hidden;max-width:360px}
-.income-prefix{padding:14px 16px;font-family:var(--font-display);font-size:1.4rem;color:var(--green);border-right:1.5px solid var(--border);background:var(--green-light)}
-#income-input{border:none;outline:none;padding:14px 16px;font-family:var(--font-mono);font-size:1.4rem;width:100%;background:transparent;color:var(--ink)}
-.income-hint{margin-top:8px;font-size:0.75rem;color:var(--ink-light);font-family:var(--font-mono)}
+/* Members */
+.members-wrap{margin-bottom:32px}
+.member-row {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+  background: var(--card); border: 1.5px solid var(--ink);
+  padding: 8px 16px; border-radius: var(--radius);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.member-row:focus-within { box-shadow: 4px 4px 0px var(--green-light); transform: translate(-2px, -2px); }
+.member-name-input {
+  font-family: var(--font-body); font-weight: 600;
+  border: none; outline: none; background: transparent; color: var(--ink);
+  font-size: 1.1rem; width: 140px; border-right: 1.5px dashed var(--border);
+}
+.member-income-prefix {
+  font-family: var(--font-display); font-size: 1.4rem; color: var(--green); padding-left: 8px;
+}
+.member-income-input {
+  border: none; outline: none; font-family: var(--font-mono); font-size: 1.4rem;
+  background: transparent; color: var(--ink); flex: 1;
+}
+.add-member-btn {
+  font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink-light);
+  background: transparent; border: 1.5px dashed var(--border); border-radius: var(--radius);
+  padding: 10px 16px; cursor: pointer; transition: all 0.2s; width: 100%;
+  margin-top: 4px; letter-spacing: 1px; text-transform: uppercase;
+}
+.add-member-btn:hover { border-color: var(--green); color: var(--green); background: var(--card); }
+.btn-del-member { border:none; background:none; color:var(--ink-faint); cursor:pointer; font-size:1.2rem; padding:4px; transition:color 0.2s; }
+.btn-del-member:hover { color:var(--red); }
+
+.total-income-display {
+  margin-top: 24px; padding-top: 16px; border-top: 2px solid var(--ink);
+  display: flex; justify-content: space-between; align-items: flex-end;
+}
+.total-income-label {
+  font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--ink-light);
+}
+.total-income-val {
+  font-family: var(--font-display); font-size: 2.5rem; color: var(--green);
+  line-height: 0.9; letter-spacing: -1.5px; text-shadow: 2px 2px 0px var(--green-light);
+}
+
+/* Expenses */
+.expenses-wrap{margin-bottom:48px}
+.expenses-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px;}
+.expense-card { background: #fcfbf9; border: 1.5px solid var(--border); border-radius: var(--radius); padding: 16px; transition: border-color 0.2s;}
+.expense-card:focus-within { border-color: var(--ink); }
+.expense-card-header { font-weight: 600; color: var(--ink); border-bottom: 1px dashed var(--border); padding-bottom: 8px; margin-bottom: 12px; font-family: var(--font-body); display: flex; justify-content: space-between;}
+.expense-card-sum { font-family: var(--font-mono); font-size: 0.85rem; color: var(--green); }
+.expense-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.exp-name-input { flex:1; border: none; background: transparent; font-family: var(--font-body); font-size: 0.9rem; outline: none; border-bottom: 1px solid transparent; width: 100px; color: var(--ink);}
+.exp-name-input:focus { border-bottom-color: var(--green); }
+.exp-prefix { font-family: var(--font-display); color: var(--ink-light); font-size: 0.9rem;}
+.exp-amt-input { width: 70px; border: none; background: transparent; font-family: var(--font-mono); font-size: 0.9rem; outline: none; text-align: right; color: var(--ink); border-bottom: 1px solid transparent;}
+.exp-amt-input:focus { border-bottom-color: var(--green); }
+.btn-del-exp { border:none; background:none; color:var(--ink-faint); cursor:pointer; font-size:1rem; padding:2px; transition:color 0.2s; }
+.btn-del-exp:hover { color:var(--red); }
+.add-exp-btn { font-size: 0.8rem; color: var(--accent); cursor: pointer; font-family: var(--font-body); margin-top: 12px; font-weight: 500; display: inline-block;}
+.add-exp-btn:hover { color: var(--green); }
+
+.disposable-income-display { background: var(--green); color: var(--card); padding: 20px 24px; border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 24px rgba(30,77,58,0.2); animation: fadeUp 0.5s ease;}
+.disp-label { font-family: var(--font-mono); font-size: 0.85rem; letter-spacing: 1px; line-height: 1.4;}
+.disp-val { font-family: var(--font-display); font-size: 2.5rem; line-height: 1; }
+
+/* Settlement Panel */
+#settlement-wrap { margin-bottom: 40px; animation: fadeUp 0.5s ease both; }
+.settlement-panel {
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  box-shadow: 6px 6px 0px var(--border); 
+  padding: 32px;
+  position: relative;
+  border-radius: var(--radius);
+}
+.settlement-panel::before {
+  content:''; position:absolute; top:0; left:0; width:6px; height:100%;
+  background: var(--green); border-radius: var(--radius) 0 0 var(--radius);
+}
+.settlement-title { font-family: var(--font-display); font-size: 1.8rem; color: var(--green); margin-bottom: 24px; border-bottom: 1.5px solid var(--border); padding-bottom: 12px; letter-spacing:-0.5px;}
+.settlement-table { display:flex; flex-direction:column; gap:8px; margin-bottom:28px; }
+.settlement-row-wrap { border-bottom:1px dashed var(--border); transition: background 0.2s; border-radius: var(--radius); }
+.settlement-row-wrap:last-child { border-bottom:none; }
+.settlement-row-wrap:hover { background: #fafaf8; }
+.settlement-row { display:flex; justify-content:space-between; align-items:center; padding:12px; cursor: pointer; user-select: none; }
+.s-name { font-weight:600; font-family:var(--font-body); width:120px; font-size: 1.05rem; display:flex; align-items:center; gap:8px;}
+.s-name .s-toggle { font-size: 0.6rem; color: var(--ink-faint); transition: transform 0.2s; }
+.settlement-row-wrap.open .s-toggle { transform: rotate(180deg); color: var(--green); }
+.s-detail { flex:1; display:flex; gap:16px; font-family:var(--font-mono); font-size:0.85rem; color:var(--ink-light); pointer-events:none;}
+.s-status { font-family:var(--font-mono); font-weight:600; font-size:0.95rem; text-align:right; pointer-events:none;}
+.s-breakdown { display:none; padding: 0 16px 16px 40px; }
+.settlement-row-wrap.open .s-breakdown { display:block; animation: fadeUp 0.3s ease both; }
+.s-bd-item { display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-bottom: 1px dashed rgba(0,0,0,0.05); font-family:var(--font-mono); font-size:0.8rem; color:var(--ink-light); }
+.s-bd-item:last-child { border-bottom: none; }
+.s-bd-name { color: var(--ink); font-family:var(--font-body); display:flex; gap:8px; align-items:center; }
+.s-bd-tag { font-size:0.6rem; padding:2px 4px; border-radius:2px; background:var(--border); color:var(--ink); font-family:var(--font-mono); }
+.transfer-box { background: var(--green-light); padding:20px; border-radius:var(--radius); border-left:4px solid var(--green); }
+.transfer-box-title { font-size:0.8rem; text-transform:uppercase; letter-spacing:3px; font-family:var(--font-mono); color:var(--green-mid); margin-bottom:16px; font-weight: 500;}
+.transfer-item { display:flex; align-items:center; gap:16px; margin-bottom:12px; font-family:var(--font-body); }
+.transfer-item:last-child { margin-bottom: 0; }
+.t-from { font-weight:600; color:var(--ink); font-size: 1.05rem;}
+.t-arrow { font-size:0.75rem; color:var(--green-mid); font-family:var(--font-mono); letter-spacing: 1px; }
+.t-to { font-weight:600; color:var(--ink); font-size: 1.05rem;}
+.t-amt { font-family:var(--font-display); font-size:1.6rem; color:var(--green); margin-left:auto; }
 
 /* Allocation bar */
 .alloc-bar-wrap{margin-bottom:32px}
-.alloc-bar{height:8px;border-radius:4px;overflow:hidden;display:flex;background:var(--border);margin-bottom:8px}
+.alloc-bar{height:8px;border-radius:4px;overflow:hidden;display:flex;background:var(--border);margin-bottom:12px}
 .alloc-bar-seg{height:100%;transition:flex .4s ease}
 .alloc-bar-seg.unalloc{background:var(--border)}
 .alloc-legend{display:flex;flex-wrap:wrap;gap:12px}
 .legend-item{display:flex;align-items:center;gap:6px;font-size:0.72rem;font-family:var(--font-mono);color:var(--ink-light)}
 .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.total-warning{font-size:0.75rem;color:var(--red);font-family:var(--font-mono);margin-top:6px;display:none}
+.total-warning{font-size:0.75rem;color:var(--red);font-family:var(--font-mono);margin-top:8px;display:none; font-weight: 600;}
 
 /* Cards grid */
-.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:40px}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-bottom:48px}
 .cat-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:box-shadow .2s,transform .2s}
-.cat-card:hover{box-shadow:0 6px 24px rgba(0,0,0,0.08);transform:translateY(-2px)}
-.cat-card-top{padding:16px;border-bottom:1px solid var(--border)}
-.cat-card-accent{height:3px;margin-bottom:14px;border-radius:2px}
-.cat-card-name{font-size:0.85rem;font-weight:500;margin-bottom:4px;letter-spacing:0.3px}
-.cat-card-pct{font-family:var(--font-mono);font-size:0.72rem;color:var(--ink-light)}
-.cat-card-amount{font-family:var(--font-display);font-size:1.9rem;color:var(--ink);margin-top:8px;letter-spacing:-0.5px}
-.cat-card-subs{padding:12px 16px}
-.sub-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px dashed var(--border);font-size:0.78rem}
+.cat-card:hover{box-shadow:0 8px 24px rgba(0,0,0,0.06);transform:translateY(-2px); border-color:var(--ink);}
+.cat-card-top{padding:20px;border-bottom:1px dashed var(--border)}
+.cat-card-accent{height:4px;margin-bottom:16px;border-radius:2px}
+.cat-card-name{font-size:1rem; font-weight:600; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;}
+.cat-card-pct{font-family:var(--font-mono);font-size:0.75rem;color:var(--ink-light)}
+.cat-card-amount{font-family:var(--font-display);font-size:2.2rem;color:var(--ink);margin-top:12px;letter-spacing:-0.5px; line-height: 1;}
+.cat-card-subs{padding:12px 20px}
+.sub-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed rgba(0,0,0,0.05);font-size:0.85rem}
 .sub-row:last-child{border-bottom:none}
-.sub-name{color:var(--ink-light)}
-.sub-amount{font-family:var(--font-mono);font-size:0.78rem;color:var(--ink)}
-.empty-state{grid-column:1/-1;text-align:center;padding:48px 24px;color:var(--ink-light);font-size:0.875rem}
-.empty-state .big{font-family:var(--font-display);font-size:2.5rem;color:var(--border);margin-bottom:12px}
+.sub-name{color:var(--ink-light); display:flex; align-items:center;}
+.sub-amount{font-family:var(--font-mono);font-size:0.85rem;color:var(--ink); font-weight: 500;}
+.empty-state{grid-column:1/-1;text-align:center;padding:64px 24px;color:var(--ink-light);font-size:0.9rem}
+.empty-state .big{font-family:var(--font-display);font-size:3rem;color:var(--border);margin-bottom:16px}
+.assignee-badge { background:var(--green-light); color:var(--green); padding:3px 8px; border-radius:12px; font-size:0.65rem; font-family:var(--font-body); font-weight:normal; border: 1px solid rgba(30,77,58,0.1); }
+.sub-assignee-badge { background:#f3f4f6; color:#4b5563; padding:2px 6px; border-radius:4px; font-size:0.65rem; margin-left:8px; font-family:var(--font-body);}
 
 /* Settings panel */
-.settings-wrap{margin-bottom:40px}
-.settings-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);user-select:none}
-.settings-toggle-label{font-family:var(--font-mono);font-size:0.78rem;letter-spacing:1px;color:var(--ink)}
-.toggle-icon{font-size:1rem;transition:transform .3s;color:var(--ink-light)}
-.toggle-icon.open{transform:rotate(180deg)}
+.settings-wrap{margin-bottom:48px}
+.settings-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:16px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);user-select:none; transition: color 0.2s;}
+.settings-toggle:hover { color: var(--green); }
+.settings-toggle-label{font-family:var(--font-mono);font-size:0.85rem;letter-spacing:1px;font-weight: 500;}
+.toggle-icon{font-size:1.2rem;transition:transform .3s;color:var(--ink-light)}
+.toggle-icon.open{transform:rotate(180deg); color:var(--ink);}
 .settings-body{display:none;padding-top:24px}
-.settings-body.open{display:block}
+.settings-body.open{display:block; animation: fadeUp 0.3s ease both;}
 
-.cat-setting{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
-.cat-setting-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);background:#fefefe}
-.color-swatch{width:16px;height:16px;border-radius:50%;border:2px solid rgba(0,0,0,0.1);cursor:pointer;flex-shrink:0}
-.cat-name-input{flex:1;border:none;outline:none;font-family:var(--font-body);font-size:0.875rem;background:transparent;color:var(--ink)}
-.cat-fields{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.field-group{display:flex;flex-direction:column;gap:3px}
-.field-label{font-family:var(--font-mono);font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--ink-light)}
-.field-input{border:1.5px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-family:var(--font-mono);font-size:0.8rem;width:72px;outline:none;background:transparent;color:var(--ink)}
+.cat-setting{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden; transition: border-color 0.2s;}
+.cat-setting:focus-within{border-color: var(--ink);}
+.cat-setting-head{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);background:#fcfbf9}
+.color-swatch{width:18px;height:18px;border-radius:50%;border:2px solid rgba(0,0,0,0.1);cursor:pointer;flex-shrink:0}
+.cat-name-input{flex:1;border:none;outline:none;font-family:var(--font-body);font-size:1rem;font-weight: 500; background:transparent;color:var(--ink)}
+.cat-fields{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.field-group{display:flex;flex-direction:column;gap:4px}
+.field-label{font-family:var(--font-mono);font-size:0.65rem;letter-spacing:1px;text-transform:uppercase;color:var(--ink-light)}
+.field-input{border:1.5px solid var(--border);border-radius:var(--radius);padding:6px 8px;font-family:var(--font-mono);font-size:0.85rem;width:80px;outline:none;background:var(--card);color:var(--ink); transition: border-color 0.2s;}
 .field-input:focus{border-color:var(--green)}
 .field-input.error{border-color:var(--red)}
 .field-input-unit{position:relative;display:flex;align-items:center}
-.field-input-unit input{padding-right:20px}
-.field-input-unit .unit{position:absolute;right:7px;font-family:var(--font-mono);font-size:0.7rem;color:var(--ink-light);pointer-events:none}
-.btn-del{border:none;background:none;cursor:pointer;color:var(--ink-light);font-size:1rem;padding:4px 6px;border-radius:var(--radius);transition:color .2s,background .2s}
+.field-input-unit input{padding-right:24px}
+.field-input-unit .unit{position:absolute;right:8px;font-family:var(--font-mono);font-size:0.75rem;color:var(--ink-light);pointer-events:none}
+.btn-del{border:none;background:none;cursor:pointer;color:var(--ink-light);font-size:1.1rem;padding:4px 8px;border-radius:var(--radius);transition:color .2s,background .2s}
 .btn-del:hover{color:var(--red);background:#fef2f2}
 
-.sub-settings{padding:10px 14px;background:#fafaf8}
-.sub-row-edit{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.sub-name-input{flex:1;border:1.5px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-family:var(--font-body);font-size:0.78rem;outline:none;background:transparent}
-.sub-name-input:focus{border-color:var(--green)}
-.sub-pct-input{width:60px;border:1.5px solid var(--border);border-radius:var(--radius);padding:5px 8px;font-family:var(--font-mono);font-size:0.78rem;outline:none;background:transparent}
-.sub-pct-input:focus{border-color:var(--green)}
-.add-sub-btn{font-family:var(--font-mono);font-size:0.72rem;color:var(--green-mid);background:none;border:1px dashed var(--green-mid);border-radius:var(--radius);padding:4px 10px;cursor:pointer;margin-top:2px}
-.add-sub-btn:hover{background:var(--green-light)}
+.assignee-select {
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  padding: 6px 8px; font-family: var(--font-body); font-size: 0.85rem;
+  outline: none; background: var(--card); color: var(--ink);
+  cursor: pointer; transition: border-color 0.2s; min-width: 100px;
+}
+.assignee-select:focus { border-color: var(--green); }
 
-.add-cat-btn{width:100%;padding:12px;border:2px dashed var(--border);border-radius:var(--radius);background:none;font-family:var(--font-mono);font-size:0.8rem;color:var(--ink-light);cursor:pointer;letter-spacing:1px;transition:all .2s}
-.add-cat-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-light)}
+.sub-settings{padding:12px 16px;background:#fafaf8}
+.sub-row-edit{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.sub-name-input{flex:1;border:1.5px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-family:var(--font-body);font-size:0.85rem;outline:none;background:var(--card); transition: border-color 0.2s;}
+.sub-name-input:focus{border-color:var(--green)}
+.sub-pct-input{width:70px;border:1.5px solid var(--border);border-radius:var(--radius);padding:6px 8px;font-family:var(--font-mono);font-size:0.85rem;outline:none;background:var(--card); transition: border-color 0.2s;}
+.sub-pct-input:focus{border-color:var(--green)}
+.add-sub-btn{font-family:var(--font-mono);font-size:0.75rem;color:var(--green-mid);background:none;border:1px dashed var(--green-mid);border-radius:var(--radius);padding:6px 12px;cursor:pointer;margin-top:4px; transition: all 0.2s;}
+.add-sub-btn:hover{background:var(--green-light); border-color: var(--green);}
+
+.add-cat-btn{width:100%;padding:16px;border:1.5px dashed var(--border);border-radius:var(--radius);background:none;font-family:var(--font-mono);font-size:0.85rem;color:var(--ink-light);cursor:pointer;letter-spacing:1px;transition:all .2s; font-weight: 500;}
+.add-cat-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-light); box-shadow: 0 4px 12px rgba(30,77,58,0.08);}
 
 /* Milestones */
-.milestone-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:16px}
+.milestone-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-top:20px}
 @media(max-width:680px){.milestone-grid{grid-template-columns:repeat(2,1fr)}}
-.milestone-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px 12px;text-align:center;position:relative;overflow:hidden;transition:box-shadow .2s}
-.milestone-card::before{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--green),var(--green-mid))}
-.milestone-card:hover{box-shadow:0 4px 16px rgba(30,77,58,0.12)}
-.milestone-year{font-family:var(--font-mono);font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;color:var(--ink-light);margin-bottom:10px}
-.milestone-amount{font-family:var(--font-display);font-size:1.2rem;color:var(--green);line-height:1.2}
-.milestone-amount.large{font-size:1rem}
-.milestone-caption{font-size:0.65rem;color:var(--ink-light);font-family:var(--font-mono);margin-top:6px}
-.milestone-note{font-size:0.7rem;color:var(--ink-light);font-family:var(--font-mono);margin-top:12px;padding:10px 12px;background:var(--green-light);border-radius:var(--radius);border-left:3px solid var(--green)}
+.milestone-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:20px 16px;text-align:center;position:relative;overflow:hidden;transition:box-shadow .2s}
+.milestone-card::before{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--green),var(--green-mid))}
+.milestone-card:hover{box-shadow:0 8px 24px rgba(30,77,58,0.1)}
+.milestone-year{font-family:var(--font-mono);font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--ink-light);margin-bottom:12px}
+.milestone-amount{font-family:var(--font-display);font-size:1.4rem;color:var(--green);line-height:1.1}
+.milestone-amount.large{font-size:1.1rem}
+.milestone-caption{font-size:0.7rem;color:var(--ink-light);font-family:var(--font-mono);margin-top:8px}
+.milestone-note{font-size:0.75rem;color:var(--ink-light);font-family:var(--font-body);margin-top:16px;padding:12px 16px;background:var(--green-light);border-radius:var(--radius);border-left:3px solid var(--green); line-height: 1.5;}
 
 /* Color picker hidden */
 input[type=color]{position:absolute;opacity:0;width:0;height:0}
 
 /* Animations */
-@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.cat-card{animation:fadeUp .35s ease both}
-.milestone-card{animation:fadeUp .4s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.cat-card{animation:fadeUp .4s ease both}
+.milestone-card{animation:fadeUp .45s ease both}
 </style>
 </head>
 <body>
 <div class="page">
 
   <header>
-    <div class="logo">财务<span>账本</span></div>
-    <div class="subtitle">Personal Finance Allocator</div>
+    <div class="logo">财务<span>分配器</span></div>
+    <div class="subtitle">Personal Finance Allocator · Dual Income</div>
   </header>
 
-  <!-- Income -->
-  <div class="income-wrap">
-    <div class="section-label">本月可支配收入</div>
-    <div class="income-row">
-      <div class="income-prefix">¥</div>
-      <input id="income-input" type="number" min="0" placeholder="15000" inputmode="numeric">
+  <!-- Members Input -->
+  <div class="members-wrap">
+    <div class="section-label">1. 资金池成员与本月收入</div>
+    <div id="members-list"></div>
+    <button class="add-member-btn" id="add-member-btn">＋ 添加新成员或共同账户</button>
+    <div class="total-income-display">
+      <div class="total-income-label">本月合并总资金池</div>
+      <div class="total-income-val" id="total-income-val">¥0</div>
     </div>
-    <div class="income-hint">输入金额后自动计算 · 数据保存在本地浏览器</div>
+  </div>
+
+  <!-- Fixed Expenses -->
+  <div class="expenses-wrap">
+    <div class="section-label">2. 本月固定支出明细 (绝对金额)</div>
+    <div id="expenses-grid" class="expenses-grid"></div>
+    <div class="disposable-income-display">
+      <div class="disp-label">扣除以上固定支出后<br>本月剩余可支配（投资）资金</div>
+      <div class="disp-val" id="disp-income-val">¥0</div>
+    </div>
   </div>
 
   <!-- Allocation bar -->
   <div class="alloc-bar-wrap">
-    <div class="section-label">分配比例</div>
+    <div class="section-label">3. 剩余资金分配比例 (百分比)</div>
     <div class="alloc-bar" id="alloc-bar"></div>
     <div class="alloc-legend" id="alloc-legend"></div>
-    <div class="total-warning" id="total-warning">⚠ 分类比例总和超过 100%，请调整</div>
+    <div class="total-warning" id="total-warning">⚠ 投资分类比例总和超过 100%，请调整</div>
   </div>
 
   <!-- Cards -->
-  <div class="section-label">本月分配明细</div>
+  <div class="section-label">剩余资金分配明细</div>
   <div class="cards-grid" id="cards-grid"></div>
+  
+  <!-- Settlement Area -->
+  <div id="settlement-wrap" style="display:none;">
+    <div class="section-label">4. 本月资金结算与转账指令</div>
+    <div class="settlement-panel" id="settlement-panel"></div>
+  </div>
 
   <!-- Settings -->
   <div class="settings-wrap">
     <div class="settings-toggle" id="settings-toggle">
-      <span class="settings-toggle-label">⚙ 分类设置</span>
+      <span class="settings-toggle-label">⚙ 百分比资金池分类配置</span>
       <span class="toggle-icon" id="toggle-icon">▾</span>
     </div>
     <div class="settings-body" id="settings-body">
@@ -188,7 +316,7 @@ input[type=color]{position:absolute;opacity:0;width:0;height:0}
   <div class="section-label">长期资产预测</div>
   <div class="milestone-grid" id="milestone-grid"></div>
   <div class="milestone-note" id="milestone-note">
-    基于当前月收入固定不变（年投入 = 月收入 × 12），各分类按预期年化收益率独立复利计算后汇总。仅供参考，不构成投资建议。
+    基于当前月剩余可支配资金固定不变（年投入 = 月剩余资金 × 12），各分类按预期年化收益独立复利计算后汇总。预测包含所有投资项，仅供参考。
   </div>
 
 </div>
@@ -213,7 +341,7 @@ async function loadData(){
       if(raw) return JSON.parse(raw);
     }catch(e){}
   }
-  return {lastIncome:0, categories:[]};
+  return {categories:[]};
 }
 
 function saveData(data){
@@ -228,7 +356,7 @@ function saveData(data){
   }
 }
 
-let data = {lastIncome:0, categories:[]};
+let data = {categories:[], members:[]};
 
 function fmt(n){
   if(!n && n!==0) return '¥0';
@@ -245,6 +373,20 @@ function totalPct(){
   return data.categories.reduce((s,c)=>s+(+c.percentage||0),0);
 }
 
+function getTotalIncome() {
+  return (data.members || []).reduce((s, m) => s + (+m.income || 0), 0);
+}
+
+function getTotalExpenses() {
+  return (data.members || []).reduce((sum, m) => {
+    return sum + (m.expenses || []).reduce((s, e) => s + (+e.amount || 0), 0);
+  }, 0);
+}
+
+function getDisposableIncome() {
+  return Math.max(0, getTotalIncome() - getTotalExpenses());
+}
+
 function calcMilestone(income, years){
   const annualTotal = income * 12;
   return data.categories.reduce((sum, cat)=>{
@@ -255,22 +397,129 @@ function calcMilestone(income, years){
   }, 0);
 }
 
-// ---- RENDER ----
+// ---- SETTLEMENT LOGIC ----
+function calculateSettlement() {
+  const dispIncome = getDisposableIncome();
+  const targets = {};
+  const breakdowns = {};
+  
+  data.members.forEach(m => {
+    targets[m.id] = 0;
+    breakdowns[m.id] = [];
+    (m.expenses || []).forEach(e => {
+      if(+e.amount > 0) {
+        targets[m.id] += +e.amount;
+        breakdowns[m.id].push({ name: e.name || '未命名支出', amount: +e.amount, type: '固定支出' });
+      }
+    });
+  });
+  let unassignedAmount = 0;
 
-function renderAll(){
-  const income = +data.lastIncome || 0;
+  data.categories.forEach(cat => {
+    const catTotal = dispIncome * ((+cat.percentage || 0) / 100);
+    let allocatedSubPct = 0;
+
+    if (cat.subcategories && cat.subcategories.length > 0) {
+      cat.subcategories.forEach(sub => {
+        const subPct = (+sub.percentage || 0);
+        allocatedSubPct += subPct;
+        const subAmt = catTotal * (subPct / 100);
+        const assigneeId = sub.assigneeId || cat.assigneeId;
+        
+        if (assigneeId && targets[assigneeId] !== undefined) {
+          targets[assigneeId] += subAmt;
+          breakdowns[assigneeId].push({ name: `${cat.name} - ${sub.name}`, amount: subAmt, type: '投资/理财' });
+        } else {
+          unassignedAmount += subAmt;
+        }
+      });
+    }
+    
+    const remainderPct = 100 - allocatedSubPct;
+    if (remainderPct > 0) {
+      const remainderAmt = catTotal * (remainderPct / 100);
+      if (cat.assigneeId && targets[cat.assigneeId] !== undefined) {
+        targets[cat.assigneeId] += remainderAmt;
+        breakdowns[cat.assigneeId].push({ name: `${cat.name}${allocatedSubPct>0?' (未细分)':''}`, amount: remainderAmt, type: '投资/理财' });
+      } else {
+        unassignedAmount += remainderAmt;
+      }
+    }
+  });
+
+  const balances = data.members.map(m => {
+    const income = +m.income || 0;
+    const target = targets[m.id] || 0;
+    return { ...m, income, target, balance: income - target, breakdown: breakdowns[m.id] };
+  });
+
+  return { balances, unassignedAmount };
+}
+
+function generateTransfers(balances) {
+  const payers = balances.filter(b => b.balance > 0.01).map(b => ({...b}));
+  const receivers = balances.filter(b => b.balance < -0.01).map(b => ({...b, needed: -b.balance}));
+  
+  const transfers = [];
+  payers.sort((a,b) => b.balance - a.balance);
+  receivers.sort((a,b) => b.needed - a.needed);
+
+  let pIdx = 0;
+  let rIdx = 0;
+
+  while (pIdx < payers.length && rIdx < receivers.length) {
+    const payer = payers[pIdx];
+    const receiver = receivers[rIdx];
+    
+    const amount = Math.min(payer.balance, receiver.needed);
+    transfers.push({ from: payer.name, to: receiver.name, amount });
+    
+    payer.balance -= amount;
+    receiver.needed -= amount;
+    
+    if (payer.balance < 0.01) pIdx++;
+    if (receiver.needed < 0.01) rIdx++;
+  }
+  return transfers;
+}
+
+// ---- SMART RENDERING ----
+// To prevent focus loss, we separate full re-renders from data-only output updates.
+
+function updateOutputsOnly() {
+  saveData(data);
+  
+  const totalVal = document.getElementById('total-income-val');
+  if(totalVal) totalVal.textContent = fmt(getTotalIncome());
+
+  data.members.forEach((m, mIdx) => {
+    let sum = (m.expenses || []).reduce((s, e) => s + (+e.amount || 0), 0);
+    const sumEl = document.getElementById('expense-sum-' + mIdx);
+    if(sumEl) sumEl.textContent = fmt(sum);
+    
+    const headerEl = document.getElementById('expense-header-' + mIdx);
+    if(headerEl) headerEl.textContent = m.name + '的支出区域';
+  });
+
+  const dispVal = document.getElementById('disp-income-val');
+  if(dispVal) dispVal.textContent = fmt(getDisposableIncome());
+
+  renderSettlement();
+  renderAllocAndCards();
+}
+
+function renderAllocAndCards() {
+  const dispIncome = getDisposableIncome();
   const total = totalPct();
   const overLimit = total > 100;
 
-  // Warning
   const warn = document.getElementById('total-warning');
-  warn.style.display = overLimit ? 'block' : 'none';
+  if(warn) warn.style.display = overLimit ? 'block' : 'none';
 
-  // Alloc bar
   const bar = document.getElementById('alloc-bar');
   const legend = document.getElementById('alloc-legend');
-  bar.innerHTML = '';
-  legend.innerHTML = '';
+  if(bar) bar.innerHTML = '';
+  if(legend) legend.innerHTML = '';
   data.categories.forEach(cat=>{
     const pct = +cat.percentage||0;
     if(pct<=0) return;
@@ -278,31 +527,31 @@ function renderAll(){
     seg.className = 'alloc-bar-seg';
     seg.style.flex = pct;
     seg.style.background = cat.color||'#ccc';
-    bar.appendChild(seg);
+    if(bar) bar.appendChild(seg);
     const li = document.createElement('div');
     li.className = 'legend-item';
     li.innerHTML = `<span class="legend-dot" style="background:${cat.color}"></span>${cat.name} ${pct}%`;
-    legend.appendChild(li);
+    if(legend) legend.appendChild(li);
   });
   if(total < 100 && !overLimit){
     const seg = document.createElement('div');
     seg.className = 'alloc-bar-seg unalloc';
     seg.style.flex = 100 - total;
-    bar.appendChild(seg);
+    if(bar) bar.appendChild(seg);
     const li = document.createElement('div');
     li.className = 'legend-item';
     li.innerHTML = `<span class="legend-dot" style="background:var(--border)"></span>未分配 ${100-total}%`;
-    legend.appendChild(li);
+    if(legend) legend.appendChild(li);
   }
 
-  // Cards
   const grid = document.getElementById('cards-grid');
+  if(!grid) return;
   grid.innerHTML = '';
   if(data.categories.length === 0){
-    grid.innerHTML = '<div class="empty-state"><div class="big">账</div>展开下方设置，添加第一个分类</div>';
+    grid.innerHTML = '<div class="empty-state"><div class="big">账</div>展开下方配置，添加第一个投资分类</div>';
   } else {
     data.categories.forEach((cat, i)=>{
-      const catAmt = income * ((+cat.percentage||0)/100);
+      const catAmt = dispIncome * ((+cat.percentage||0)/100);
       const card = document.createElement('div');
       card.className = 'cat-card';
       card.style.animationDelay = (i*0.05)+'s';
@@ -311,36 +560,240 @@ function renderAll(){
         subsHtml = '<div class="cat-card-subs">' +
           cat.subcategories.map(s=>{
             const sa = catAmt * ((+s.percentage||0)/100);
-            return `<div class="sub-row"><span class="sub-name">${s.name}</span><span class="sub-amount">${fmt(sa)}</span></div>`;
+            let subBadge = '';
+            const subAssigneeId = s.assigneeId || cat.assigneeId;
+            if(subAssigneeId) {
+              const m = data.members.find(mx => mx.id === subAssigneeId);
+              if(m) subBadge = `<span class="sub-assignee-badge">执行: ${m.name}</span>`;
+            }
+            return `<div class="sub-row"><span class="sub-name">${s.name}${subBadge}</span><span class="sub-amount">${fmt(sa)}</span></div>`;
           }).join('') + '</div>';
       }
+
+      let badge = '';
+      if(cat.assigneeId) {
+        const m = data.members.find(mx => mx.id === cat.assigneeId);
+        if(m) badge = `<span class="assignee-badge">执行人: ${m.name}</span>`;
+      }
+
       card.innerHTML = `
         <div class="cat-card-top">
           <div class="cat-card-accent" style="background:${cat.color}"></div>
-          <div class="cat-card-name">${cat.name}</div>
-          <div class="cat-card-pct">${cat.percentage||0}% of income</div>
+          <div class="cat-card-name">
+            <span>${cat.name}</span>
+            ${badge}
+          </div>
+          <div class="cat-card-pct">${cat.percentage||0}% of disposable</div>
           <div class="cat-card-amount">${fmt(catAmt)}</div>
         </div>${subsHtml}`;
       grid.appendChild(card);
     });
   }
 
-  // Milestones
   const mgrid = document.getElementById('milestone-grid');
+  if(!mgrid) return;
   mgrid.innerHTML = '';
   MILESTONE_YEARS.forEach((y, i)=>{
-    const amt = overLimit ? null : calcMilestone(income, y);
+    const amt = overLimit ? null : calcMilestone(dispIncome, y);
     const card = document.createElement('div');
     card.className = 'milestone-card';
     card.style.animationDelay = (i*0.06)+'s';
-    const amtStr = (amt===null||income===0) ? '—' : fmtLarge(amt);
+    const amtStr = (amt===null||dispIncome===0) ? '—' : fmtLarge(amt);
     card.innerHTML = `
       <div class="milestone-year">${y} 年后</div>
       <div class="milestone-amount${amtStr.length>6?' large':''}">${amtStr}</div>
-      <div class="milestone-caption">累计总资产</div>`;
+      <div class="milestone-caption">累计总资产预期</div>`;
     mgrid.appendChild(card);
   });
 }
+
+function renderMembers() {
+  const list = document.getElementById('members-list');
+  list.innerHTML = '';
+  data.members.forEach((m, i) => {
+    list.innerHTML += `
+      <div class="member-row">
+        <input class="member-name-input" value="${m.name}" data-idx="${i}" placeholder="成员/账户名">
+        <span class="member-income-prefix">¥</span>
+        <input class="member-income-input" type="number" min="0" value="${m.income||0}" data-idx="${i}" placeholder="收入金额">
+        <button class="btn-del-member" data-idx="${i}" title="删除此成员">✕</button>
+      </div>
+    `;
+  });
+  document.getElementById('total-income-val').textContent = fmt(getTotalIncome());
+
+  list.querySelectorAll('.member-name-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      data.members[+e.target.dataset.idx].name = e.target.value;
+      updateOutputsOnly();
+    });
+  });
+  list.querySelectorAll('.member-income-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      data.members[+e.target.dataset.idx].income = +e.target.value || 0;
+      updateOutputsOnly();
+    });
+  });
+  list.querySelectorAll('.btn-del-member').forEach(btn => {
+    btn.addEventListener('click', e => {
+      if(data.members.length <= 1) {
+        alert('至少需要保留一个成员账户');
+        return;
+      }
+      if(!confirm('确认删除此账户？关联的支出和执行人将被清空。')) return;
+      const idx = +e.target.dataset.idx;
+      const deletedId = data.members[idx].id;
+      data.members.splice(idx, 1);
+      
+      data.categories.forEach(cat => {
+        if(cat.assigneeId === deletedId) cat.assigneeId = '';
+        if(cat.subcategories) {
+          cat.subcategories.forEach(sub => {
+            if(sub.assigneeId === deletedId) sub.assigneeId = '';
+          });
+        }
+      });
+      fullRender();
+    });
+  });
+}
+
+function renderExpenses() {
+  const grid = document.getElementById('expenses-grid');
+  grid.innerHTML = '';
+  
+  data.members.forEach((m, mIdx) => {
+    let sum = 0;
+    let itemsHtml = '';
+    (m.expenses || []).forEach((exp, eIdx) => {
+      sum += (+exp.amount || 0);
+      itemsHtml += `
+        <div class="expense-row">
+          <input class="exp-name-input" value="${exp.name}" data-midx="${mIdx}" data-eidx="${eIdx}" placeholder="输入支出名称">
+          <span class="exp-prefix">¥</span>
+          <input class="exp-amt-input" type="number" min="0" value="${exp.amount||0}" data-midx="${mIdx}" data-eidx="${eIdx}" placeholder="0">
+          <button class="btn-del-exp" data-midx="${mIdx}" data-eidx="${eIdx}" title="删除此支出">✕</button>
+        </div>
+      `;
+    });
+    
+    grid.innerHTML += `
+      <div class="expense-card">
+        <div class="expense-card-header">
+          <span id="expense-header-${mIdx}">${m.name}的支出区域</span>
+          <span class="expense-card-sum" id="expense-sum-${mIdx}">${fmt(sum)}</span>
+        </div>
+        <div class="expense-items">${itemsHtml}</div>
+        <div class="add-exp-btn" data-midx="${mIdx}">+ 添加一项支出</div>
+      </div>
+    `;
+  });
+
+  document.getElementById('disp-income-val').textContent = fmt(getDisposableIncome());
+
+  grid.querySelectorAll('.exp-name-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      data.members[+e.target.dataset.midx].expenses[+e.target.dataset.eidx].name = e.target.value;
+      updateOutputsOnly();
+    });
+  });
+  grid.querySelectorAll('.exp-amt-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      data.members[+e.target.dataset.midx].expenses[+e.target.dataset.eidx].amount = +e.target.value || 0;
+      updateOutputsOnly();
+    });
+  });
+  grid.querySelectorAll('.btn-del-exp').forEach(btn => {
+    btn.addEventListener('click', e => {
+      data.members[+e.target.dataset.midx].expenses.splice(+e.target.dataset.eidx, 1);
+      fullRender();
+    });
+  });
+  grid.querySelectorAll('.add-exp-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const midx = +e.target.dataset.midx;
+      if (!data.members[midx].expenses) data.members[midx].expenses = [];
+      data.members[midx].expenses.push({ id: genId(), name: '', amount: 0 });
+      fullRender();
+    });
+  });
+}
+
+function renderSettlement() {
+  const wrap = document.getElementById('settlement-wrap');
+  const panel = document.getElementById('settlement-panel');
+  if (data.members.length === 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+
+  const { balances, unassignedAmount } = calculateSettlement();
+  const transfers = generateTransfers(balances);
+
+  let html = `<div class="settlement-title">月度资金核算单</div>`;
+  
+  html += `<div class="settlement-table">`;
+  balances.forEach(b => {
+    let statusStr = '';
+    if (b.balance > 0.01) statusStr = `<span style="color:var(--green);">结余 ${fmt(b.balance)}</span>`;
+    else if (b.balance < -0.01) statusStr = `<span style="color:var(--red);">缺口 ${fmt(-b.balance)}</span>`;
+    else statusStr = `<span style="color:var(--ink-light);">资金平衡</span>`;
+
+    html += `
+      <div class="settlement-row-wrap" onclick="this.classList.toggle('open')">
+        <div class="settlement-row">
+          <div class="s-name">${b.name} <span class="s-toggle">▼</span></div>
+          <div class="s-detail">
+            <span>出资: ${fmt(b.income)}</span>
+            <span style="color:var(--border);">|</span>
+            <span>总任务: ${fmt(b.target)}</span>
+          </div>
+          <div class="s-status">${statusStr}</div>
+        </div>
+        <div class="s-breakdown" onclick="event.stopPropagation()">
+          ${b.breakdown.length === 0 ? '<div class="s-bd-item" style="color:var(--ink-faint);">无分配任务</div>' : ''}
+          ${b.breakdown.map(bd => `
+            <div class="s-bd-item">
+              <span class="s-bd-name"><span class="s-bd-tag">${bd.type}</span> ${bd.name}</span>
+              <span class="s-bd-amt">${fmt(bd.amount)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+
+  if (transfers.length > 0) {
+    html += `<div class="transfer-box"><div class="transfer-box-title">系统结算建议指令</div>`;
+    transfers.forEach(t => {
+      html += `<div class="transfer-item">
+        <span class="t-from">${t.from}</span>
+        <span class="t-arrow">─ 转账给 ─▶</span>
+        <span class="t-to">${t.to}</span>
+        <span class="t-amt">${fmt(t.amount)}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div class="transfer-box" style="text-align:center; color:var(--green-mid); font-family:var(--font-mono); font-weight:500;">各账户资金已内部平衡，本月无需转账操作</div>`;
+  }
+
+  if (unassignedAmount > 0.01) {
+    html += `<div style="font-size:0.75rem; color:var(--accent); margin-top:16px; font-family:var(--font-mono);">* 提醒: 有 ${fmt(unassignedAmount)} 投资额度没有指定执行人</div>`;
+  }
+
+  panel.innerHTML = html;
+}
+
+const assigneeOpts = (selectedId) => 
+  `<option value="">-- 未指派 --</option>` + 
+  data.members.map(m => `<option value="${m.id}" ${m.id===selectedId?'selected':''}>执行: ${m.name}</option>`).join('');
+
+const subAssigneeOpts = (selectedId) => 
+  `<option value="">跟随主类</option>` + 
+  data.members.map(m => `<option value="${m.id}" ${m.id===selectedId?'selected':''}>执行: ${m.name}</option>`).join('');
 
 function renderSettings(){
   const list = document.getElementById('cat-settings-list');
@@ -349,48 +802,55 @@ function renderSettings(){
     const div = document.createElement('div');
     div.className = 'cat-setting';
 
-    // Subcategories HTML
-    let subsHtml = cat.subcategories.map((s,si)=>`
+    let subsHtml = (cat.subcategories||[]).map((s,si)=>`
       <div class="sub-row-edit" data-si="${si}">
-        <input class="sub-name-input" value="${s.name}" placeholder="子分类名称" data-field="name" data-ci="${ci}" data-si="${si}">
+        <input class="sub-name-input" value="${s.name}" placeholder="二级分类名称" data-field="name" data-ci="${ci}" data-si="${si}">
+        <select class="assignee-select" data-field="subAssigneeId" data-ci="${ci}" data-si="${si}">
+          ${subAssigneeOpts(s.assigneeId)}
+        </select>
         <div class="field-input-unit">
           <input class="sub-pct-input" type="number" min="0" max="100" value="${s.percentage||0}" data-field="pct" data-ci="${ci}" data-si="${si}">
           <span class="unit">%</span>
         </div>
-        <button class="btn-del" data-del-sub="${si}" data-ci="${ci}" title="删除">✕</button>
+        <button class="btn-del" data-del-sub="${si}" data-ci="${ci}" title="删除子项">✕</button>
       </div>`).join('');
 
     div.innerHTML = `
       <div class="cat-setting-head">
         <div class="color-swatch" style="background:${cat.color}" title="点击换色" data-ci="${ci}"></div>
         <input type="color" id="cpick-${ci}" value="${cat.color}" data-ci="${ci}">
-        <input class="cat-name-input" value="${cat.name}" placeholder="分类名称" data-field="name" data-ci="${ci}">
+        <input class="cat-name-input" value="${cat.name}" placeholder="一级分类名称" data-field="name" data-ci="${ci}">
         <div class="cat-fields">
           <div class="field-group">
-            <span class="field-label">占比</span>
+            <span class="field-label">执行人</span>
+            <select class="assignee-select" data-field="assigneeId" data-ci="${ci}">
+              ${assigneeOpts(cat.assigneeId)}
+            </select>
+          </div>
+          <div class="field-group">
+            <span class="field-label">比例</span>
             <div class="field-input-unit">
-              <input class="field-input ${totalPct()>100?'error':''}" type="number" min="0" max="100" value="${cat.percentage||0}" data-field="pct" data-ci="${ci}" style="width:72px">
+              <input class="field-input ${totalPct()>100?'error':''}" type="number" min="0" max="100" value="${cat.percentage||0}" data-field="pct" data-ci="${ci}" style="width:70px">
               <span class="unit">%</span>
             </div>
           </div>
           <div class="field-group">
-            <span class="field-label">年化</span>
+            <span class="field-label">预收益</span>
             <div class="field-input-unit">
-              <input class="field-input" type="number" min="0" max="100" step="0.1" value="${cat.expectedReturn||0}" data-field="ret" data-ci="${ci}" style="width:72px">
+              <input class="field-input" type="number" min="0" max="100" step="0.1" value="${cat.expectedReturn||0}" data-field="ret" data-ci="${ci}" style="width:70px">
               <span class="unit">%</span>
             </div>
           </div>
-          <button class="btn-del" data-del-cat="${ci}" title="删除分类">🗑</button>
+          <button class="btn-del" data-del-cat="${ci}" title="删除整个分类" style="margin-top:12px;">🗑</button>
         </div>
       </div>
       <div class="sub-settings">
         <div class="sub-list" data-ci="${ci}">${subsHtml}</div>
-        <button class="add-sub-btn" data-ci="${ci}">＋ 添加二级分类</button>
+        <button class="add-sub-btn" data-ci="${ci}">＋ 细分二级类目</button>
       </div>`;
     list.appendChild(div);
   });
 
-  // Bind events
   list.querySelectorAll('.color-swatch').forEach(sw=>{
     sw.addEventListener('click',()=>{
       document.getElementById('cpick-'+sw.dataset.ci).click();
@@ -401,13 +861,13 @@ function renderSettings(){
       const ci = +e.target.dataset.ci;
       data.categories[ci].color = e.target.value;
       list.querySelectorAll('.color-swatch')[ci].style.background = e.target.value;
-      saveQuiet();
+      updateOutputsOnly();
     });
   });
   list.querySelectorAll('.cat-name-input').forEach(inp=>{
     inp.addEventListener('input',e=>{
       data.categories[+e.target.dataset.ci].name = e.target.value;
-      saveQuiet();
+      updateOutputsOnly();
     });
   });
   list.querySelectorAll('.field-input').forEach(inp=>{
@@ -416,61 +876,69 @@ function renderSettings(){
       const f = e.target.dataset.field;
       if(f==='pct') data.categories[ci].percentage = +e.target.value||0;
       if(f==='ret') data.categories[ci].expectedReturn = +e.target.value||0;
-      saveQuiet();
+      updateOutputsOnly();
+    });
+  });
+  list.querySelectorAll('select[data-field="assigneeId"]').forEach(sel=>{
+    sel.addEventListener('change',e=>{
+      data.categories[+e.target.dataset.ci].assigneeId = e.target.value;
+      updateOutputsOnly();
     });
   });
   list.querySelectorAll('[data-del-cat]').forEach(btn=>{
     btn.addEventListener('click',e=>{
-      if(!confirm('确认删除此分类？')) return;
+      if(!confirm('确认删除此资金分类及其所有配置？')) return;
       data.categories.splice(+btn.dataset.delCat,1);
-      save();
+      fullRender();
     });
   });
   list.querySelectorAll('.add-sub-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const ci = +btn.dataset.ci;
       if(!data.categories[ci].subcategories) data.categories[ci].subcategories=[];
-      data.categories[ci].subcategories.push({id:genId(),name:'',percentage:0});
-      save();
+      data.categories[ci].subcategories.push({id:genId(),name:'',percentage:0, assigneeId:''});
+      fullRender();
     });
   });
   list.querySelectorAll('.sub-name-input').forEach(inp=>{
     inp.addEventListener('input',e=>{
       data.categories[+e.target.dataset.ci].subcategories[+e.target.dataset.si].name = e.target.value;
-      saveQuiet();
+      updateOutputsOnly();
     });
   });
   list.querySelectorAll('.sub-pct-input').forEach(inp=>{
     inp.addEventListener('input',e=>{
       data.categories[+e.target.dataset.ci].subcategories[+e.target.dataset.si].percentage = +e.target.value||0;
-      saveQuiet();
+      updateOutputsOnly();
+    });
+  });
+  list.querySelectorAll('select[data-field="subAssigneeId"]').forEach(sel=>{
+    sel.addEventListener('change',e=>{
+      data.categories[+e.target.dataset.ci].subcategories[+e.target.dataset.si].assigneeId = e.target.value;
+      updateOutputsOnly();
     });
   });
   list.querySelectorAll('[data-del-sub]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const ci = +btn.dataset.ci;
       data.categories[ci].subcategories.splice(+btn.dataset.delSub,1);
-      save();
+      fullRender();
     });
   });
 }
 
-function saveQuiet(){
+function fullRender() {
   saveData(data);
-  renderAll();
-}
-
-function save(){
-  saveData(data);
-  renderAll();
+  renderMembers();
+  renderExpenses();
   renderSettings();
+  updateOutputsOnly(); // This will trigger the calculation and dynamic DOM updates
 }
 
-// Income input
-document.getElementById('income-input').addEventListener('input', e=>{
-  data.lastIncome = +e.target.value||0;
-  saveData(data);
-  renderAll();
+// Add member button
+document.getElementById('add-member-btn').addEventListener('click',()=>{
+  data.members.push({ id: genId(), name: '新成员', income: 0, expenses: [] });
+  fullRender();
 });
 
 // Settings toggle
@@ -487,25 +955,36 @@ document.getElementById('add-cat-btn').addEventListener('click',()=>{
   const colorIdx = data.categories.length % DEFAULT_COLORS.length;
   data.categories.push({
     id: genId(),
-    name: '新分类',
+    name: '新投资类目',
     percentage: 0,
     color: DEFAULT_COLORS[colorIdx],
     expectedReturn: 5,
+    assigneeId: '',
     subcategories: []
   });
-  save();
+  fullRender();
 });
 
 // Init (async)
 (async()=>{
   data = await loadData();
-  document.getElementById('income-input').value = data.lastIncome || '';
+  
+  if(!data.members) {
+    data.members = [
+      { id: genId(), name: '刘', income: data.lastIncome || 0, expenses: [] },
+      { id: genId(), name: '邱', income: 0, expenses: [] },
+      { id: genId(), name: '小荷包', income: 0, expenses: [] }
+    ];
+  } else {
+    data.members.forEach(m => { if(!m.expenses) m.expenses = []; });
+  }
+
   if(data.categories.length === 0){
     document.getElementById('settings-body').classList.add('open');
     document.getElementById('toggle-icon').classList.add('open');
-    renderSettings();
   }
-  renderAll();
+  
+  fullRender();
 })();
 </script>
 </body>
