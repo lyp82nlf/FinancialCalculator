@@ -328,6 +328,10 @@ const DEFAULT_COLORS = ['#1e4d3a','#c17d3c','#2c5f8a','#7a3c6e','#4a7a3a','#8a5a
 function genId(){return Math.random().toString(36).slice(2,9)}
 
 const IS_SERVER = location.protocol === 'http:' || location.protocol === 'https:';
+const TRADING_DAYS_CACHE_KEY = 'finance-trading-days-cn-cache';
+
+let currentTradingDaysInfo = null;
+let tradingDaysFetchPromise = null;
 
 async function loadData(){
   if(IS_SERVER){
@@ -385,6 +389,170 @@ function getTotalExpenses() {
 
 function getDisposableIncome() {
   return Math.max(0, getTotalIncome() - getTotalExpenses());
+}
+
+function getCurrentYearMonth() {
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
+function monthKey(year, month) {
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+function countWeekdaysInMonth(year, month) {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let weekdays = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const weekDay = new Date(year, month - 1, day).getDay();
+    if (weekDay >= 1 && weekDay <= 5) weekdays++;
+  }
+  return weekdays;
+}
+
+function readTradingDaysCache() {
+  try {
+    const raw = localStorage.getItem(TRADING_DAYS_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeTradingDaysCache(cacheMap) {
+  try {
+    localStorage.setItem(TRADING_DAYS_CACHE_KEY, JSON.stringify(cacheMap));
+  } catch (e) {}
+}
+
+function getCachedTradingDays(year, month) {
+  const key = monthKey(year, month);
+  const item = readTradingDaysCache()[key];
+  if (!item) return null;
+  const days = +item.tradingDays;
+  if (!Number.isFinite(days) || days <= 0) return null;
+  return {
+    year,
+    month,
+    key,
+    tradingDays: days,
+    source: 'cache',
+    isEstimated: false
+  };
+}
+
+function saveTradingDaysToCache(info) {
+  const key = monthKey(info.year, info.month);
+  const cacheMap = readTradingDaysCache();
+  cacheMap[key] = {
+    year: info.year,
+    month: info.month,
+    tradingDays: info.tradingDays,
+    source: info.source,
+    fetchedAt: new Date().toISOString()
+  };
+  writeTradingDaysCache(cacheMap);
+}
+
+function getDateFromHolidayEntry(entryKey, entry, year) {
+  if (entry && typeof entry.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.date)) {
+    return entry.date;
+  }
+  if (/^\d{2}-\d{2}$/.test(entryKey)) return `${year}-${entryKey}`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(entryKey)) return entryKey;
+  return '';
+}
+
+function countHolidayWeekdaysInMonth(holidayMap, year, month) {
+  const seen = new Set();
+  Object.entries(holidayMap || {}).forEach(([key, entry]) => {
+    if (!entry || entry.holiday !== true) return;
+    const dateStr = getDateFromHolidayEntry(key, entry, year);
+    if (!dateStr) return;
+    const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return;
+    const y = +m[1];
+    const mon = +m[2];
+    const day = +m[3];
+    if (y !== year || mon !== month) return;
+    const dt = new Date(y, mon - 1, day);
+    const weekDay = dt.getDay();
+    if (weekDay < 1 || weekDay > 5) return;
+    seen.add(dateStr);
+  });
+  return seen.size;
+}
+
+function estimateTradingDaysInfo(year, month) {
+  const weekdays = countWeekdaysInMonth(year, month);
+  return {
+    year,
+    month,
+    key: monthKey(year, month),
+    tradingDays: Math.max(1, weekdays),
+    source: 'estimated',
+    isEstimated: true
+  };
+}
+
+async function fetchTradingDaysFromTimor(year, month) {
+  const res = await fetch(`https://timor.tech/api/holiday/year/${year}/`);
+  if (!res.ok) throw new Error(`timor-status-${res.status}`);
+  const json = await res.json();
+  if (!json || json.code !== 0 || !json.holiday || typeof json.holiday !== 'object') {
+    throw new Error('timor-payload-invalid');
+  }
+
+  const weekdays = countWeekdaysInMonth(year, month);
+  const holidayWeekdays = countHolidayWeekdaysInMonth(json.holiday, year, month);
+  const tradingDays = Math.max(1, weekdays - holidayWeekdays);
+
+  return {
+    year,
+    month,
+    key: monthKey(year, month),
+    tradingDays,
+    source: 'api',
+    isEstimated: false
+  };
+}
+
+async function resolveCurrentMonthTradingDays() {
+  const { year, month } = getCurrentYearMonth();
+  const key = monthKey(year, month);
+  if (currentTradingDaysInfo && currentTradingDaysInfo.key === key) return currentTradingDaysInfo;
+  if (tradingDaysFetchPromise) return tradingDaysFetchPromise;
+
+  tradingDaysFetchPromise = (async () => {
+    let info = null;
+    try {
+      info = await fetchTradingDaysFromTimor(year, month);
+      saveTradingDaysToCache(info);
+    } catch (e) {
+      info = getCachedTradingDays(year, month) || estimateTradingDaysInfo(year, month);
+    }
+    currentTradingDaysInfo = info;
+    return info;
+  })().finally(() => {
+    tradingDaysFetchPromise = null;
+  });
+
+  return tradingDaysFetchPromise;
+}
+
+function isDailyBreakdownItem(item) {
+  if (!item || item.type !== '投资/理财') return false;
+  return !(item.name || '').includes('存款');
+}
+
+function fmtBreakdownAmount(item, tradingInfo) {
+  const monthlyAmount = fmt(item.amount);
+  if (!isDailyBreakdownItem(item) || !tradingInfo || tradingInfo.tradingDays <= 0) return monthlyAmount;
+  const daily = Math.round((+item.amount || 0) / tradingInfo.tradingDays);
+  const dailyPrefix = tradingInfo.isEstimated ? '约' : '';
+  return `${monthlyAmount}（${dailyPrefix}${fmt(daily)}/天）`;
 }
 
 function calcMilestone(income, years){
@@ -727,9 +895,17 @@ function renderSettlement() {
     return;
   }
   wrap.style.display = 'block';
+  const { year, month } = getCurrentYearMonth();
+  if (!currentTradingDaysInfo || currentTradingDaysInfo.key !== monthKey(year, month)) {
+    resolveCurrentMonthTradingDays()
+      .then(() => updateOutputsOnly())
+      .catch(() => {});
+  }
 
   const { balances, unassignedAmount } = calculateSettlement();
   const transfers = generateTransfers(balances);
+  const tradingInfo = currentTradingDaysInfo;
+  let hasEstimatedDaily = false;
 
   let html = `<div class="settlement-title">月度资金核算单</div>`;
   
@@ -753,12 +929,16 @@ function renderSettlement() {
         </div>
         <div class="s-breakdown" onclick="event.stopPropagation()">
           ${b.breakdown.length === 0 ? '<div class="s-bd-item" style="color:var(--ink-faint);">无分配任务</div>' : ''}
-          ${b.breakdown.map(bd => `
-            <div class="s-bd-item">
-              <span class="s-bd-name"><span class="s-bd-tag">${bd.type}</span> ${bd.name}</span>
-              <span class="s-bd-amt">${fmt(bd.amount)}</span>
-            </div>
-          `).join('')}
+          ${b.breakdown.map(bd => {
+            if (tradingInfo && tradingInfo.isEstimated && isDailyBreakdownItem(bd)) hasEstimatedDaily = true;
+            const amountText = fmtBreakdownAmount(bd, tradingInfo);
+            return `
+              <div class="s-bd-item">
+                <span class="s-bd-name"><span class="s-bd-tag">${bd.type}</span> ${bd.name}</span>
+                <span class="s-bd-amt">${amountText}</span>
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
     `;
@@ -782,6 +962,9 @@ function renderSettlement() {
 
   if (unassignedAmount > 0.01) {
     html += `<div style="font-size:0.75rem; color:var(--accent); margin-top:16px; font-family:var(--font-mono);">* 提醒: 有 ${fmt(unassignedAmount)} 投资额度没有指定执行人</div>`;
+  }
+  if (hasEstimatedDaily) {
+    html += `<div style="font-size:0.75rem; color:var(--ink-light); margin-top:8px; font-family:var(--font-mono);">* 当前月交易日为估算值（日投入仅供参考）</div>`;
   }
 
   panel.innerHTML = html;
@@ -985,6 +1168,9 @@ document.getElementById('add-cat-btn').addEventListener('click',()=>{
   }
   
   fullRender();
+  resolveCurrentMonthTradingDays()
+    .then(() => updateOutputsOnly())
+    .catch(() => {});
 })();
 </script>
 </body>
