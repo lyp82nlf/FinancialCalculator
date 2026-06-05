@@ -3,6 +3,8 @@
 
 # 用户数据（个人财务数据，不应进入仓库）
 data.json
+finance.db
+finance.db-*
 
 # pm2 & 进程管理
 ecosystem.config.js

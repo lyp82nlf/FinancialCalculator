@@ -45,6 +45,21 @@ header{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:40px
 .logo{font-family:var(--font-display);font-size:2rem;color:var(--green);letter-spacing:-0.5px}
 .logo span{color:var(--accent);font-style:italic}
 .subtitle{font-size:0.75rem;color:var(--ink-light);letter-spacing:2px;text-transform:uppercase;font-family:var(--font-mono)}
+.header-right{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+.snapshot-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.snapshot-btn{
+  font-family:var(--font-mono);font-size:0.72rem;color:var(--ink);
+  background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:7px 10px;cursor:pointer;transition:all .2s;letter-spacing:.5px;
+}
+.snapshot-btn:hover{border-color:var(--green);color:var(--green);box-shadow:2px 2px 0 var(--green-light)}
+.snapshot-btn.primary{background:var(--green);border-color:var(--green);color:var(--card)}
+.snapshot-btn.primary:hover{color:var(--card);transform:translateY(-1px)}
+@media(max-width:680px){
+  header{align-items:flex-start;flex-direction:column;gap:16px}
+  .header-right{align-items:flex-start}
+  .snapshot-actions{justify-content:flex-start}
+}
 
 /* Section labels */
 .section-label{font-family:var(--font-mono);font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;color:var(--ink-light);margin-bottom:12px;display:flex;align-items:center;gap:8px}
@@ -226,6 +241,11 @@ header{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:40px
 .sub-name-input:focus{border-color:var(--green)}
 .sub-pct-input{width:70px;border:1.5px solid var(--border);border-radius:var(--radius);padding:6px 8px;font-family:var(--font-mono);font-size:0.85rem;outline:none;background:var(--card); transition: border-color 0.2s;}
 .sub-pct-input:focus{border-color:var(--green)}
+.sub-pct-input.error{border-color:var(--red)}
+.allocation-hint{font-family:var(--font-mono);font-size:0.7rem;color:var(--ink-light);margin:8px 0 10px;}
+.allocation-hint.warning{color:var(--red);font-weight:600}
+.sub-allocation-hint{font-family:var(--font-mono);font-size:0.68rem;color:var(--ink-light);margin-bottom:10px;}
+.sub-allocation-hint.warning{color:var(--red);font-weight:600}
 .add-sub-btn{font-family:var(--font-mono);font-size:0.75rem;color:var(--green-mid);background:none;border:1px dashed var(--green-mid);border-radius:var(--radius);padding:6px 12px;cursor:pointer;margin-top:4px; transition: all 0.2s;}
 .add-sub-btn:hover{background:var(--green-light); border-color: var(--green);}
 
@@ -258,7 +278,14 @@ input[type=color]{position:absolute;opacity:0;width:0;height:0}
 
   <header>
     <div class="logo">财务<span>分配器</span></div>
-    <div class="subtitle">Personal Finance Allocator · Dual Income</div>
+    <div class="header-right">
+      <div class="subtitle">Personal Finance Allocator · Dual Income</div>
+      <div class="snapshot-actions">
+        <button class="snapshot-btn primary" id="save-snapshot-btn">保存快照</button>
+        <button class="snapshot-btn" id="restore-snapshot-btn">恢复快照</button>
+        <button class="snapshot-btn" id="history-btn">历史统计</button>
+      </div>
+    </div>
   </header>
 
   <!-- Members Input -->
@@ -375,6 +402,102 @@ function fmtLarge(n){
 
 function totalPct(){
   return data.categories.reduce((s,c)=>s+(+c.percentage||0),0);
+}
+
+function subTotalPct(cat){
+  return (cat.subcategories || []).reduce((s, sub) => s + (+sub.percentage || 0), 0);
+}
+
+function pctHint(total, label) {
+  const rounded = Math.round(total * 10) / 10;
+  if (rounded === 100) return `${label}已闭合：100%`;
+  if (rounded > 100) return `${label}当前 ${rounded}%，失焦后将自动调回 100%`;
+  return `${label}当前 ${rounded}%，失焦后将自动补齐到 100%`;
+}
+
+function subPctHint(cat) {
+  if (!cat.subcategories || cat.subcategories.length === 0) {
+    return '二级类目未细分：由一级类目承接 100%';
+  }
+  return pctHint(subTotalPct(cat), '二级类目');
+}
+
+function parseWholePct(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function findPctBucketIndex(items, preferredIndex, getName) {
+  const bucketIndex = items.findIndex((item, idx) => {
+    if (idx === preferredIndex) return false;
+    return /存款|现金|未细分|备用/.test(getName(item) || '');
+  });
+  if (bucketIndex >= 0) return bucketIndex;
+  if (preferredIndex >= 0 && preferredIndex < items.length) return preferredIndex;
+  return items.length > 0 ? 0 : -1;
+}
+
+function normalizePctItems(items, preferredIndex, getPct, setPct, getName) {
+  if (!items || items.length === 0) return;
+  items.forEach(item => setPct(item, parseWholePct(getPct(item))));
+
+  let total = items.reduce((sum, item) => sum + getPct(item), 0);
+  if (total === 100) return;
+
+  if (total < 100) {
+    const targetIndex = findPctBucketIndex(items, preferredIndex, getName);
+    if (targetIndex < 0) return;
+    const target = items[targetIndex];
+    setPct(target, getPct(target) + (100 - total));
+    return;
+  }
+
+  let overflow = total - 100;
+  const bucketIndex = findPctBucketIndex(items, preferredIndex, getName);
+  const order = [
+    ...(bucketIndex !== preferredIndex ? [bucketIndex] : []),
+    ...items.map((_, idx) => idx).filter(idx => idx !== bucketIndex && idx !== preferredIndex),
+    preferredIndex
+  ].filter((idx, pos, arr) => idx >= 0 && idx < items.length && arr.indexOf(idx) === pos);
+
+  order.some(idx => {
+    const item = items[idx];
+    const current = getPct(item);
+    const deduction = Math.min(current, overflow);
+    setPct(item, current - deduction);
+    overflow -= deduction;
+    return overflow <= 0;
+  });
+}
+
+function normalizeCategoryPercentages(preferredIndex) {
+  normalizePctItems(
+    data.categories,
+    preferredIndex,
+    item => +item.percentage || 0,
+    (item, value) => { item.percentage = value; },
+    item => item.name
+  );
+}
+
+function normalizeSubPercentages(ci, preferredIndex) {
+  const cat = data.categories[ci];
+  if (!cat || !cat.subcategories || cat.subcategories.length === 0) return;
+  normalizePctItems(
+    cat.subcategories,
+    preferredIndex,
+    item => +item.percentage || 0,
+    (item, value) => { item.percentage = value; },
+    item => item.name
+  );
+}
+
+function normalizeAllPercentages() {
+  normalizeCategoryPercentages(0);
+  data.categories.forEach((cat, ci) => {
+    if ((cat.subcategories || []).length > 0) normalizeSubPercentages(ci, 0);
+  });
 }
 
 function getTotalIncome() {
@@ -555,6 +678,177 @@ function fmtBreakdownAmount(item, tradingInfo) {
   return `${monthlyAmount}（${dailyPrefix}${fmt(daily)}/天）`;
 }
 
+function getCurrentMonthKey() {
+  const { year, month } = getCurrentYearMonth();
+  return monthKey(year, month);
+}
+
+function getMemberById(memberId) {
+  return (data.members || []).find(m => m.id === memberId) || null;
+}
+
+function buildInvestmentItemSnapshot({ cat, sub, amount, assigneeId, tradingInfo }) {
+  if (amount <= 0) return null;
+  const assignee = getMemberById(assigneeId);
+  const categoryName = cat.name || '未命名分类';
+  const subcategoryName = sub ? (sub.name || '未命名子项') : '';
+  const itemName = subcategoryName ? `${categoryName} - ${subcategoryName}` : categoryName;
+  const shouldDaily = !itemName.includes('存款') && tradingInfo && tradingInfo.tradingDays > 0;
+  return {
+    assigneeId: assigneeId || '',
+    assigneeName: assignee ? assignee.name : '未指派',
+    categoryName,
+    subcategoryName,
+    itemName,
+    monthlyAmount: Math.round(amount),
+    dailyAmount: shouldDaily ? Math.round(amount / tradingInfo.tradingDays) : null,
+    tradingDays: shouldDaily ? tradingInfo.tradingDays : null,
+    isEstimatedTradingDays: shouldDaily ? !!tradingInfo.isEstimated : false
+  };
+}
+
+function buildInvestmentSnapshotItems(tradingInfo) {
+  const dispIncome = getDisposableIncome();
+  const items = [];
+
+  data.categories.forEach(cat => {
+    const catTotal = dispIncome * ((+cat.percentage || 0) / 100);
+    let allocatedSubPct = 0;
+
+    (cat.subcategories || []).forEach(sub => {
+      const subPct = +sub.percentage || 0;
+      allocatedSubPct += subPct;
+      const amount = catTotal * (subPct / 100);
+      const item = buildInvestmentItemSnapshot({
+        cat,
+        sub,
+        amount,
+        assigneeId: sub.assigneeId || cat.assigneeId,
+        tradingInfo
+      });
+      if (item) items.push(item);
+    });
+
+    const remainderPct = 100 - allocatedSubPct;
+    if (remainderPct > 0) {
+      const item = buildInvestmentItemSnapshot({
+        cat,
+        sub: null,
+        amount: catTotal * (remainderPct / 100),
+        assigneeId: cat.assigneeId,
+        tradingInfo
+      });
+      if (item) items.push(item);
+    }
+  });
+
+  return items;
+}
+
+function buildMemberBalanceSnapshot() {
+  return calculateSettlement().balances.map(balance => ({
+    memberId: balance.id,
+    memberName: balance.name,
+    income: Math.round(balance.income),
+    target: Math.round(balance.target),
+    balance: Math.round(balance.balance)
+  }));
+}
+
+function normalizeLoadedData(config) {
+  const normalized = config && typeof config === 'object' ? config : { categories: [] };
+  if (!normalized.categories) normalized.categories = [];
+  if (!normalized.members) {
+    normalized.members = [
+      { id: genId(), name: '刘', income: normalized.lastIncome || 0, expenses: [] },
+      { id: genId(), name: '邱', income: 0, expenses: [] },
+      { id: genId(), name: '小荷包', income: 0, expenses: [] }
+    ];
+  }
+  normalized.members.forEach(m => { if (!m.expenses) m.expenses = []; });
+  return normalized;
+}
+
+async function buildSnapshotPayload() {
+  const tradingInfo = await resolveCurrentMonthTradingDays();
+  return {
+    monthKey: getCurrentMonthKey(),
+    config: data,
+    summary: {
+      monthKey: getCurrentMonthKey(),
+      totalIncome: Math.round(getTotalIncome()),
+      totalExpenses: Math.round(getTotalExpenses()),
+      disposableIncome: Math.round(getDisposableIncome()),
+      totalPercentage: totalPct(),
+      tradingDays: tradingInfo ? tradingInfo.tradingDays : null,
+      tradingDaysSource: tradingInfo ? tradingInfo.source : '',
+      isEstimatedTradingDays: tradingInfo ? !!tradingInfo.isEstimated : false,
+      savedAt: new Date().toISOString()
+    },
+    investmentItems: buildInvestmentSnapshotItems(tradingInfo),
+    memberBalances: buildMemberBalanceSnapshot()
+  };
+}
+
+async function postJson(url, payload) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.ok === false) throw new Error(json.error || 'request_failed');
+  return json;
+}
+
+async function saveSnapshot() {
+  if (!IS_SERVER) {
+    alert('保存快照需要通过本地服务访问页面');
+    return;
+  }
+  normalizeAllPercentages();
+  fullRender();
+  const btn = document.getElementById('save-snapshot-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const payload = await buildSnapshotPayload();
+    const result = await postJson('/api/snapshots/current', payload);
+    alert(`${result.updated ? '已更新' : '已保存'} ${payload.monthKey} 快照`);
+  } catch (e) {
+    alert('保存快照失败，请稍后重试');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function restoreSnapshot() {
+  if (!IS_SERVER) {
+    alert('恢复快照需要通过本地服务访问页面');
+    return;
+  }
+  if (!confirm('恢复快照会覆盖当前页面数据，确认继续？')) return;
+  const month = getCurrentMonthKey();
+  const btn = document.getElementById('restore-snapshot-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`/api/snapshots/current?monthKey=${encodeURIComponent(month)}`);
+    const json = await res.json().catch(() => ({}));
+    if (res.status === 404) {
+      alert('本月暂无快照');
+      return;
+    }
+    if (!res.ok || !json.ok || !json.snapshot) throw new Error(json.error || 'restore_failed');
+    data = normalizeLoadedData(json.snapshot.config);
+    normalizeAllPercentages();
+    fullRender();
+    alert(`已恢复 ${month} 快照`);
+  } catch (e) {
+    alert('恢复快照失败，请稍后重试');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 function calcMilestone(income, years){
   const annualTotal = income * 12;
   return data.categories.reduce((sum, cat)=>{
@@ -674,6 +968,7 @@ function updateOutputsOnly() {
 
   renderSettlement();
   renderAllocAndCards();
+  updateSettingsAllocationStatus();
 }
 
 function renderAllocAndCards() {
@@ -772,6 +1067,32 @@ function renderAllocAndCards() {
       <div class="milestone-amount${amtStr.length>6?' large':''}">${amtStr}</div>
       <div class="milestone-caption">累计总资产预期</div>`;
     mgrid.appendChild(card);
+  });
+}
+
+function updateSettingsAllocationStatus() {
+  const rootTotal = totalPct();
+  const rootOverLimit = rootTotal > 100;
+  const rootHint = document.getElementById('root-allocation-hint');
+  if (rootHint) {
+    rootHint.textContent = pctHint(rootTotal, '一级分类');
+    rootHint.classList.toggle('warning', rootOverLimit);
+  }
+  document.querySelectorAll('.field-input[data-field="pct"]').forEach(inp => {
+    inp.classList.toggle('error', rootOverLimit);
+  });
+
+  data.categories.forEach((cat, ci) => {
+    const subTotal = subTotalPct(cat);
+    const subOverLimit = subTotal > 100;
+    const hint = document.getElementById('sub-allocation-hint-' + ci);
+    if (hint) {
+      hint.textContent = subPctHint(cat);
+      hint.classList.toggle('warning', subOverLimit);
+    }
+    document.querySelectorAll(`.sub-pct-input[data-ci="${ci}"]`).forEach(inp => {
+      inp.classList.toggle('error', subOverLimit);
+    });
   });
 }
 
@@ -981,9 +1302,16 @@ const subAssigneeOpts = (selectedId) =>
 function renderSettings(){
   const list = document.getElementById('cat-settings-list');
   list.innerHTML = '';
+  const rootPct = totalPct();
+  const rootOverLimit = rootPct > 100;
+  const rootHintClass = rootOverLimit ? 'allocation-hint warning' : 'allocation-hint';
+  list.innerHTML = `<div class="${rootHintClass}" id="root-allocation-hint">${pctHint(rootPct, '一级分类')}</div>`;
   data.categories.forEach((cat, ci)=>{
     const div = document.createElement('div');
     div.className = 'cat-setting';
+    const catSubPct = subTotalPct(cat);
+    const subOverLimit = catSubPct > 100;
+    const subHintClass = subOverLimit ? 'sub-allocation-hint warning' : 'sub-allocation-hint';
 
     let subsHtml = (cat.subcategories||[]).map((s,si)=>`
       <div class="sub-row-edit" data-si="${si}">
@@ -992,7 +1320,7 @@ function renderSettings(){
           ${subAssigneeOpts(s.assigneeId)}
         </select>
         <div class="field-input-unit">
-          <input class="sub-pct-input" type="number" min="0" max="100" value="${s.percentage||0}" data-field="pct" data-ci="${ci}" data-si="${si}">
+          <input class="sub-pct-input ${subOverLimit?'error':''}" type="number" min="0" max="100" step="1" value="${s.percentage||0}" data-field="pct" data-ci="${ci}" data-si="${si}">
           <span class="unit">%</span>
         </div>
         <button class="btn-del" data-del-sub="${si}" data-ci="${ci}" title="删除子项">✕</button>
@@ -1013,7 +1341,7 @@ function renderSettings(){
           <div class="field-group">
             <span class="field-label">比例</span>
             <div class="field-input-unit">
-              <input class="field-input ${totalPct()>100?'error':''}" type="number" min="0" max="100" value="${cat.percentage||0}" data-field="pct" data-ci="${ci}" style="width:70px">
+              <input class="field-input ${rootOverLimit?'error':''}" type="number" min="0" max="100" step="1" value="${cat.percentage||0}" data-field="pct" data-ci="${ci}" style="width:70px">
               <span class="unit">%</span>
             </div>
           </div>
@@ -1028,6 +1356,7 @@ function renderSettings(){
         </div>
       </div>
       <div class="sub-settings">
+        <div class="${subHintClass}" id="sub-allocation-hint-${ci}">${subPctHint(cat)}</div>
         <div class="sub-list" data-ci="${ci}">${subsHtml}</div>
         <button class="add-sub-btn" data-ci="${ci}">＋ 细分二级类目</button>
       </div>`;
@@ -1057,9 +1386,24 @@ function renderSettings(){
     inp.addEventListener('input',e=>{
       const ci = +e.target.dataset.ci;
       const f = e.target.dataset.field;
-      if(f==='pct') data.categories[ci].percentage = +e.target.value||0;
+      if(f==='pct') {
+        const pct = parseWholePct(e.target.value);
+        data.categories[ci].percentage = pct;
+        if(e.target.value !== '' && !/^\d+$/.test(e.target.value)) e.target.value = pct;
+      }
       if(f==='ret') data.categories[ci].expectedReturn = +e.target.value||0;
       updateOutputsOnly();
+    });
+    inp.addEventListener('blur',e=>{
+      const ci = +e.target.dataset.ci;
+      const f = e.target.dataset.field;
+      if(f !== 'pct') return;
+      data.categories[ci].percentage = parseWholePct(e.target.value);
+      normalizeCategoryPercentages(ci);
+      fullRender();
+    });
+    inp.addEventListener('keydown',e=>{
+      if(e.key === 'Enter') e.target.blur();
     });
   });
   list.querySelectorAll('select[data-field="assigneeId"]').forEach(sel=>{
@@ -1072,6 +1416,7 @@ function renderSettings(){
     btn.addEventListener('click',e=>{
       if(!confirm('确认删除此资金分类及其所有配置？')) return;
       data.categories.splice(+btn.dataset.delCat,1);
+      if(data.categories.length > 0) normalizeCategoryPercentages(0);
       fullRender();
     });
   });
@@ -1079,7 +1424,8 @@ function renderSettings(){
     btn.addEventListener('click',()=>{
       const ci = +btn.dataset.ci;
       if(!data.categories[ci].subcategories) data.categories[ci].subcategories=[];
-      data.categories[ci].subcategories.push({id:genId(),name:'',percentage:0, assigneeId:''});
+      const percentage = data.categories[ci].subcategories.length === 0 ? 100 : 0;
+      data.categories[ci].subcategories.push({id:genId(),name:'',percentage, assigneeId:''});
       fullRender();
     });
   });
@@ -1091,8 +1437,22 @@ function renderSettings(){
   });
   list.querySelectorAll('.sub-pct-input').forEach(inp=>{
     inp.addEventListener('input',e=>{
-      data.categories[+e.target.dataset.ci].subcategories[+e.target.dataset.si].percentage = +e.target.value||0;
+      const ci = +e.target.dataset.ci;
+      const si = +e.target.dataset.si;
+      const pct = parseWholePct(e.target.value);
+      data.categories[ci].subcategories[si].percentage = pct;
+      if(e.target.value !== '' && !/^\d+$/.test(e.target.value)) e.target.value = pct;
       updateOutputsOnly();
+    });
+    inp.addEventListener('blur',e=>{
+      const ci = +e.target.dataset.ci;
+      const si = +e.target.dataset.si;
+      data.categories[ci].subcategories[si].percentage = parseWholePct(e.target.value);
+      normalizeSubPercentages(ci, si);
+      fullRender();
+    });
+    inp.addEventListener('keydown',e=>{
+      if(e.key === 'Enter') e.target.blur();
     });
   });
   list.querySelectorAll('select[data-field="subAssigneeId"]').forEach(sel=>{
@@ -1105,6 +1465,7 @@ function renderSettings(){
     btn.addEventListener('click',()=>{
       const ci = +btn.dataset.ci;
       data.categories[ci].subcategories.splice(+btn.dataset.delSub,1);
+      if((data.categories[ci].subcategories || []).length > 0) normalizeSubPercentages(ci, 0);
       fullRender();
     });
   });
@@ -1136,10 +1497,11 @@ document.getElementById('settings-toggle').addEventListener('click',()=>{
 // Add category
 document.getElementById('add-cat-btn').addEventListener('click',()=>{
   const colorIdx = data.categories.length % DEFAULT_COLORS.length;
+  const percentage = data.categories.length === 0 ? 100 : 0;
   data.categories.push({
     id: genId(),
     name: '新投资类目',
-    percentage: 0,
+    percentage,
     color: DEFAULT_COLORS[colorIdx],
     expectedReturn: 5,
     assigneeId: '',
@@ -1148,20 +1510,17 @@ document.getElementById('add-cat-btn').addEventListener('click',()=>{
   fullRender();
 });
 
+document.getElementById('save-snapshot-btn').addEventListener('click', saveSnapshot);
+document.getElementById('restore-snapshot-btn').addEventListener('click', restoreSnapshot);
+document.getElementById('history-btn').addEventListener('click',()=>{
+  location.href = IS_SERVER ? '/history.html' : 'history.html';
+});
+
 // Init (async)
 (async()=>{
-  data = await loadData();
+  data = normalizeLoadedData(await loadData());
+  normalizeAllPercentages();
   
-  if(!data.members) {
-    data.members = [
-      { id: genId(), name: '刘', income: data.lastIncome || 0, expenses: [] },
-      { id: genId(), name: '邱', income: 0, expenses: [] },
-      { id: genId(), name: '小荷包', income: 0, expenses: [] }
-    ];
-  } else {
-    data.members.forEach(m => { if(!m.expenses) m.expenses = []; });
-  }
-
   if(data.categories.length === 0){
     document.getElementById('settings-body').classList.add('open');
     document.getElementById('toggle-icon').classList.add('open');

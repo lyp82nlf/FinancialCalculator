@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const PORT = process.env.PORT || 5812;
 const HOST = process.env.HOST || '127.0.0.1'; // 默认只监听本机
@@ -9,9 +10,57 @@ const AUTH_PASS = process.env.AUTH_PASS || '';
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 const INDEX_FILE = path.join(__dirname, 'index.html');
+const HISTORY_FILE = path.join(__dirname, 'history.html');
+const SNAPSHOT_DB_SCRIPT = path.join(__dirname, 'snapshot_db.py');
+const MAX_CONFIG_BODY_SIZE = 65536;
+const MAX_SNAPSHOT_BODY_SIZE = 512 * 1024;
 
 if (!fs.existsSync(DATA_FILE)) {
   fs.writeFileSync(DATA_FILE, JSON.stringify({ lastIncome: 0, categories: [] }));
+}
+
+function sendJson(res, status, payload) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(payload));
+}
+
+function readJsonBody(req, res, maxSize, onDone) {
+  let body = '';
+  req.on('data', chunk => {
+    body += chunk;
+    if (body.length > maxSize) {
+      res.writeHead(413, { 'Content-Type': 'text/plain' });
+      res.end('Payload Too Large');
+      req.destroy();
+    }
+  });
+  req.on('end', () => {
+    try {
+      onDone(JSON.parse(body || '{}'));
+    } catch (e) {
+      sendJson(res, 400, { ok: false, error: 'invalid_json' });
+    }
+  });
+}
+
+function currentMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function runSnapshotDb(command, payload = {}) {
+  const output = execFileSync('python3', [SNAPSHOT_DB_SCRIPT, command], {
+    input: JSON.stringify(payload),
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024
+  });
+  return JSON.parse(output || '{}');
+}
+
+try {
+  runSnapshotDb('init');
+} catch (e) {
+  console.error('SQLite 初始化失败:', e.message);
 }
 
 // Basic Auth 校验
@@ -74,38 +123,65 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/config') {
-    // 限制请求体大小（最大 64KB）
-    let body = '';
-    req.on('data', chunk => {
-      body += chunk;
-      if (body.length > 65536) {
-        res.writeHead(413, { 'Content-Type': 'text/plain' });
-        res.end('Payload Too Large');
-        req.destroy();
-      }
-    });
-    req.on('end', () => {
+    readJsonBody(req, res, MAX_CONFIG_BODY_SIZE, data => {
       try {
-        JSON.parse(body);
-        fs.writeFileSync(DATA_FILE, body);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }));
+        fs.writeFileSync(DATA_FILE, JSON.stringify(data));
+        sendJson(res, 200, { ok: true });
       } catch (e) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: 'invalid JSON' }));
+        sendJson(res, 500, { ok: false, error: 'write_failed' });
       }
     });
     return;
   }
 
-  if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
+  if (req.method === 'POST' && url.pathname === '/api/snapshots/current') {
+    readJsonBody(req, res, MAX_SNAPSHOT_BODY_SIZE, payload => {
+      try {
+        payload.monthKey = payload.monthKey || currentMonthKey();
+        const result = runSnapshotDb('save-current', payload);
+        sendJson(res, result.ok ? 200 : 400, result);
+      } catch (e) {
+        sendJson(res, 500, { ok: false, error: 'snapshot_save_failed' });
+      }
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/snapshots/current') {
     try {
-      const html = fs.readFileSync(INDEX_FILE, 'utf-8');
+      const monthKey = url.searchParams.get('monthKey') || currentMonthKey();
+      const result = runSnapshotDb('get-current', { monthKey });
+      sendJson(res, result.ok ? 200 : 404, result);
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: 'snapshot_read_failed' });
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/history') {
+    try {
+      const result = runSnapshotDb('history', {
+        year: url.searchParams.get('year') || '',
+        month: url.searchParams.get('month') || '',
+        assignee: url.searchParams.get('assignee') || '',
+        itemKeyword: url.searchParams.get('itemKeyword') || ''
+      });
+      sendJson(res, result.ok ? 200 : 400, result);
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: 'history_query_failed' });
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/history.html')) {
+    try {
+      const file = url.pathname === '/history.html' ? HISTORY_FILE : INDEX_FILE;
+      const html = fs.readFileSync(file, 'utf-8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
     } catch (e) {
       res.writeHead(404);
-      res.end('index.html not found');
+      res.end('html not found');
     }
     return;
   }

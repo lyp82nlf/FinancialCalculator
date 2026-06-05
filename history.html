@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>历史统计 - 个人财务分配器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --paper:#faf8f5;--ink:#1a1a18;--ink-light:#6b6b64;--ink-faint:#c8c4bb;
+  --green:#1e4d3a;--green-light:#e8f0eb;--green-mid:#3a7a5a;
+  --accent:#c17d3c;--border:#ddd9d0;--card:#ffffff;--red:#c0392b;
+  --radius:4px;--font-display:'DM Serif Display',serif;--font-body:'Noto Serif SC',serif;--font-mono:'DM Mono',monospace;
+}
+body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0}
+.page{max-width:1080px;margin:0 auto;padding:48px 24px 80px;position:relative;z-index:1}
+header{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:32px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px}
+.logo{font-family:var(--font-display);font-size:2rem;color:var(--green)}
+.subtitle{font-size:.75rem;color:var(--ink-light);letter-spacing:2px;text-transform:uppercase;font-family:var(--font-mono);margin-top:4px}
+.back-link{font-family:var(--font-mono);font-size:.75rem;color:var(--green);text-decoration:none;border:1.5px solid var(--green);padding:8px 12px;border-radius:var(--radius);background:var(--card)}
+.back-link:hover{box-shadow:2px 2px 0 var(--green-light)}
+.section-label{font-family:var(--font-mono);font-size:.65rem;letter-spacing:3px;text-transform:uppercase;color:var(--ink-light);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.filters{background:var(--card);border:1.5px solid var(--ink);box-shadow:6px 6px 0 var(--border);padding:20px;margin-bottom:28px;border-radius:var(--radius);display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:12px;align-items:end}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-family:var(--font-mono);font-size:.65rem;color:var(--ink-light);letter-spacing:1px;text-transform:uppercase}
+.field select,.field input{border:1.5px solid var(--border);border-radius:var(--radius);padding:9px 10px;background:var(--card);color:var(--ink);font-family:var(--font-body);font-size:.9rem;outline:none}
+.field select:focus,.field input:focus{border-color:var(--green)}
+.query-btn{font-family:var(--font-mono);font-size:.78rem;color:var(--card);background:var(--green);border:1.5px solid var(--green);border-radius:var(--radius);padding:10px 12px;cursor:pointer}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.summary-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:18px}
+.summary-label{font-family:var(--font-mono);font-size:.68rem;color:var(--ink-light);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.summary-value{font-family:var(--font-display);font-size:2rem;color:var(--green);line-height:1}
+.groups{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
+.panel{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;min-width:0}
+.panel h2{font-size:1rem;margin-bottom:12px;color:var(--ink)}
+.group-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:8px 0;border-bottom:1px dashed rgba(0,0,0,.07);font-size:.85rem}
+.group-row:last-child{border-bottom:none}
+.group-name{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.group-amt{font-family:var(--font-mono);color:var(--green)}
+.table-wrap{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:820px}
+th,td{padding:12px 14px;border-bottom:1px dashed rgba(0,0,0,.07);text-align:left;font-size:.85rem}
+th{font-family:var(--font-mono);font-size:.68rem;color:var(--ink-light);text-transform:uppercase;letter-spacing:1px;background:#fcfbf9}
+td.amount{font-family:var(--font-mono);text-align:right;color:var(--ink)}
+.muted{color:var(--ink-light)}
+.empty{padding:42px;text-align:center;color:var(--ink-light);font-size:.9rem}
+.estimate{color:var(--accent)}
+@media(max-width:860px){
+  header{align-items:flex-start;flex-direction:column}
+  .filters{grid-template-columns:1fr 1fr}
+  .query-btn{grid-column:1/-1}
+  .summary-grid{grid-template-columns:1fr 1fr}
+  .groups{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <div class="logo">历史统计</div>
+      <div class="subtitle">Monthly Snapshot Analytics</div>
+    </div>
+    <a class="back-link" href="/">返回当前配置</a>
+  </header>
+
+  <div class="section-label">筛选条件</div>
+  <div class="filters">
+    <div class="field">
+      <label for="year-filter">年份</label>
+      <select id="year-filter"><option value="">全部年份</option></select>
+    </div>
+    <div class="field">
+      <label for="month-filter">月份</label>
+      <select id="month-filter"><option value="">全部月份</option></select>
+    </div>
+    <div class="field">
+      <label for="assignee-filter">执行人</label>
+      <select id="assignee-filter"><option value="">全部执行人</option></select>
+    </div>
+    <div class="field">
+      <label for="item-filter">投资子项</label>
+      <input id="item-filter" placeholder="例如：纳指">
+    </div>
+    <button class="query-btn" id="query-btn">查询统计</button>
+  </div>
+
+  <div class="section-label">汇总</div>
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label">总投资额</div>
+      <div class="summary-value" id="total-investment">¥0</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">平均日投入</div>
+      <div class="summary-value" id="avg-daily">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">涉及月份</div>
+      <div class="summary-value" id="month-count">0</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">明细条数</div>
+      <div class="summary-value" id="item-count">0</div>
+    </div>
+  </div>
+
+  <div class="section-label">分组汇总</div>
+  <div class="groups">
+    <div class="panel">
+      <h2>按执行人</h2>
+      <div id="group-assignee"></div>
+    </div>
+    <div class="panel">
+      <h2>按投资子项</h2>
+      <div id="group-item"></div>
+    </div>
+    <div class="panel">
+      <h2>按月份</h2>
+      <div id="group-month"></div>
+    </div>
+  </div>
+
+  <div class="section-label">投资明细</div>
+  <div class="table-wrap" id="table-wrap"></div>
+</div>
+
+<script>
+function fmt(n){
+  if(n === null || n === undefined || n === '') return '—';
+  return '¥' + Math.round(n).toLocaleString('zh-CN');
+}
+
+function selected(id){
+  return document.getElementById(id).value;
+}
+
+function setOptions(id, values, allLabel, mapper){
+  const select = document.getElementById(id);
+  const current = select.value;
+  select.innerHTML = `<option value="">${allLabel}</option>`;
+  values.forEach(value => {
+    const mapped = mapper ? mapper(value) : { value, label: value };
+    const option = document.createElement('option');
+    option.value = mapped.value;
+    option.textContent = mapped.label;
+    select.appendChild(option);
+  });
+  if ([...select.options].some(option => option.value === current)) select.value = current;
+}
+
+function renderSummary(summary){
+  document.getElementById('total-investment').textContent = fmt(summary.totalInvestment);
+  document.getElementById('avg-daily').textContent = fmt(summary.averageDailyAmount);
+  document.getElementById('month-count').textContent = summary.monthCount || 0;
+  document.getElementById('item-count').textContent = summary.itemCount || 0;
+}
+
+function renderGroup(id, rows){
+  const el = document.getElementById(id);
+  if(!rows || rows.length === 0){
+    el.innerHTML = '<div class="muted">暂无数据</div>';
+    return;
+  }
+  el.innerHTML = rows.map(row => `
+    <div class="group-row">
+      <span class="group-name" title="${row.name}">${row.name}</span>
+      <span class="group-amt">${fmt(row.monthlyAmount)}</span>
+    </div>
+  `).join('');
+}
+
+function renderTable(items){
+  const wrap = document.getElementById('table-wrap');
+  if(!items || items.length === 0){
+    wrap.innerHTML = '<div class="empty">暂无历史快照数据</div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>月份</th>
+          <th>执行人</th>
+          <th>投资项</th>
+          <th>分类</th>
+          <th style="text-align:right">月投入</th>
+          <th style="text-align:right">日投入</th>
+          <th>交易日</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(item => `
+          <tr>
+            <td>${item.monthKey}</td>
+            <td>${item.assigneeName}</td>
+            <td>${item.itemName}</td>
+            <td class="muted">${item.subcategoryName ? item.categoryName : '—'}</td>
+            <td class="amount">${fmt(item.monthlyAmount)}</td>
+            <td class="amount ${item.isEstimatedTradingDays ? 'estimate' : ''}">${item.dailyAmount === null ? '—' : `${item.isEstimatedTradingDays ? '约' : ''}${fmt(item.dailyAmount)}/天`}</td>
+            <td>${item.tradingDays || '—'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderFilters(filters){
+  const year = selected('year-filter');
+  const monthValues = (filters.months || [])
+    .filter(monthKey => !year || monthKey.startsWith(year + '-'))
+    .map(monthKey => monthKey.slice(5));
+  const uniqueMonths = [...new Set(monthValues)].sort().reverse();
+  setOptions('year-filter', filters.years || [], '全部年份');
+  setOptions('month-filter', uniqueMonths, '全部月份', value => ({ value, label: value + ' 月' }));
+  setOptions('assignee-filter', filters.assignees || [], '全部执行人');
+}
+
+async function loadHistory(){
+  const params = new URLSearchParams();
+  if(selected('year-filter')) params.set('year', selected('year-filter'));
+  if(selected('month-filter')) params.set('month', selected('month-filter'));
+  if(selected('assignee-filter')) params.set('assignee', selected('assignee-filter'));
+  const keyword = document.getElementById('item-filter').value.trim();
+  if(keyword) params.set('itemKeyword', keyword);
+
+  const res = await fetch('/api/history?' + params.toString());
+  const json = await res.json().catch(() => ({}));
+  if(!res.ok || !json.ok) throw new Error(json.error || 'history_failed');
+
+  renderFilters(json.filters || {});
+  renderSummary(json.summary || {});
+  renderGroup('group-assignee', json.groupedByAssignee || []);
+  renderGroup('group-item', json.groupedByItem || []);
+  renderGroup('group-month', json.groupedByMonth || []);
+  renderTable(json.items || []);
+}
+
+document.getElementById('query-btn').addEventListener('click',()=>{
+  loadHistory().catch(() => alert('历史统计加载失败'));
+});
+document.getElementById('year-filter').addEventListener('change', loadHistory);
+document.getElementById('month-filter').addEventListener('change', loadHistory);
+document.getElementById('assignee-filter').addEventListener('change', loadHistory);
+document.getElementById('item-filter').addEventListener('keydown', e => {
+  if(e.key === 'Enter') loadHistory();
+});
+
+loadHistory().catch(() => {
+  document.getElementById('table-wrap').innerHTML = '<div class="empty">历史统计加载失败</div>';
+});
+</script>
+</body>
+</html>
