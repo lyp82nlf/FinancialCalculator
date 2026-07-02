@@ -409,10 +409,9 @@ function subTotalPct(cat){
 }
 
 function pctHint(total, label) {
-  const rounded = Math.round(total * 10) / 10;
-  if (rounded === 100) return `${label}已闭合：100%`;
-  if (rounded > 100) return `${label}当前 ${rounded}%，失焦后将自动调回 100%`;
-  return `${label}当前 ${rounded}%，失焦后将自动补齐到 100%`;
+  const rounded = Math.round(total);
+  if (rounded === 100) return `${label}已分配 100%，比例正确`;
+  return `${label}当前 ${rounded}%，请手动调整为 100%`;
 }
 
 function subPctHint(cat) {
@@ -426,78 +425,6 @@ function parseWholePct(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-function findPctBucketIndex(items, preferredIndex, getName) {
-  const bucketIndex = items.findIndex((item, idx) => {
-    if (idx === preferredIndex) return false;
-    return /存款|现金|未细分|备用/.test(getName(item) || '');
-  });
-  if (bucketIndex >= 0) return bucketIndex;
-  if (preferredIndex >= 0 && preferredIndex < items.length) return preferredIndex;
-  return items.length > 0 ? 0 : -1;
-}
-
-function normalizePctItems(items, preferredIndex, getPct, setPct, getName) {
-  if (!items || items.length === 0) return;
-  items.forEach(item => setPct(item, parseWholePct(getPct(item))));
-
-  let total = items.reduce((sum, item) => sum + getPct(item), 0);
-  if (total === 100) return;
-
-  if (total < 100) {
-    const targetIndex = findPctBucketIndex(items, preferredIndex, getName);
-    if (targetIndex < 0) return;
-    const target = items[targetIndex];
-    setPct(target, getPct(target) + (100 - total));
-    return;
-  }
-
-  let overflow = total - 100;
-  const bucketIndex = findPctBucketIndex(items, preferredIndex, getName);
-  const order = [
-    ...(bucketIndex !== preferredIndex ? [bucketIndex] : []),
-    ...items.map((_, idx) => idx).filter(idx => idx !== bucketIndex && idx !== preferredIndex),
-    preferredIndex
-  ].filter((idx, pos, arr) => idx >= 0 && idx < items.length && arr.indexOf(idx) === pos);
-
-  order.some(idx => {
-    const item = items[idx];
-    const current = getPct(item);
-    const deduction = Math.min(current, overflow);
-    setPct(item, current - deduction);
-    overflow -= deduction;
-    return overflow <= 0;
-  });
-}
-
-function normalizeCategoryPercentages(preferredIndex) {
-  normalizePctItems(
-    data.categories,
-    preferredIndex,
-    item => +item.percentage || 0,
-    (item, value) => { item.percentage = value; },
-    item => item.name
-  );
-}
-
-function normalizeSubPercentages(ci, preferredIndex) {
-  const cat = data.categories[ci];
-  if (!cat || !cat.subcategories || cat.subcategories.length === 0) return;
-  normalizePctItems(
-    cat.subcategories,
-    preferredIndex,
-    item => +item.percentage || 0,
-    (item, value) => { item.percentage = value; },
-    item => item.name
-  );
-}
-
-function normalizeAllPercentages() {
-  normalizeCategoryPercentages(0);
-  data.categories.forEach((cat, ci) => {
-    if ((cat.subcategories || []).length > 0) normalizeSubPercentages(ci, 0);
-  });
 }
 
 function getTotalIncome() {
@@ -806,8 +733,6 @@ async function saveSnapshot() {
     alert('保存快照需要通过本地服务访问页面');
     return;
   }
-  normalizeAllPercentages();
-  fullRender();
   const btn = document.getElementById('save-snapshot-btn');
   if (btn) btn.disabled = true;
   try {
@@ -839,7 +764,6 @@ async function restoreSnapshot() {
     }
     if (!res.ok || !json.ok || !json.snapshot) throw new Error(json.error || 'restore_failed');
     data = normalizeLoadedData(json.snapshot.config);
-    normalizeAllPercentages();
     fullRender();
     alert(`已恢复 ${month} 快照`);
   } catch (e) {
@@ -975,9 +899,13 @@ function renderAllocAndCards() {
   const dispIncome = getDisposableIncome();
   const total = totalPct();
   const overLimit = total > 100;
+  const invalidTotal = data.categories.length > 0 && total !== 100;
 
   const warn = document.getElementById('total-warning');
-  if(warn) warn.style.display = overLimit ? 'block' : 'none';
+  if(warn) {
+    warn.textContent = `投资分类比例总和应为 100%，当前为 ${total}%`;
+    warn.style.display = invalidTotal ? 'block' : 'none';
+  }
 
   const bar = document.getElementById('alloc-bar');
   const legend = document.getElementById('alloc-legend');
@@ -1072,26 +1000,27 @@ function renderAllocAndCards() {
 
 function updateSettingsAllocationStatus() {
   const rootTotal = totalPct();
-  const rootOverLimit = rootTotal > 100;
+  const rootInvalid = data.categories.length > 0 && rootTotal !== 100;
   const rootHint = document.getElementById('root-allocation-hint');
   if (rootHint) {
     rootHint.textContent = pctHint(rootTotal, '一级分类');
-    rootHint.classList.toggle('warning', rootOverLimit);
+    rootHint.classList.toggle('warning', rootInvalid);
   }
   document.querySelectorAll('.field-input[data-field="pct"]').forEach(inp => {
-    inp.classList.toggle('error', rootOverLimit);
+    inp.classList.toggle('error', rootInvalid);
   });
 
   data.categories.forEach((cat, ci) => {
     const subTotal = subTotalPct(cat);
-    const subOverLimit = subTotal > 100;
+    const hasSubcategories = (cat.subcategories || []).length > 0;
+    const subInvalid = hasSubcategories && subTotal !== 100;
     const hint = document.getElementById('sub-allocation-hint-' + ci);
     if (hint) {
       hint.textContent = subPctHint(cat);
-      hint.classList.toggle('warning', subOverLimit);
+      hint.classList.toggle('warning', subInvalid);
     }
     document.querySelectorAll(`.sub-pct-input[data-ci="${ci}"]`).forEach(inp => {
-      inp.classList.toggle('error', subOverLimit);
+      inp.classList.toggle('error', subInvalid);
     });
   });
 }
@@ -1303,15 +1232,15 @@ function renderSettings(){
   const list = document.getElementById('cat-settings-list');
   list.innerHTML = '';
   const rootPct = totalPct();
-  const rootOverLimit = rootPct > 100;
-  const rootHintClass = rootOverLimit ? 'allocation-hint warning' : 'allocation-hint';
+  const rootInvalid = data.categories.length > 0 && rootPct !== 100;
+  const rootHintClass = rootInvalid ? 'allocation-hint warning' : 'allocation-hint';
   list.innerHTML = `<div class="${rootHintClass}" id="root-allocation-hint">${pctHint(rootPct, '一级分类')}</div>`;
   data.categories.forEach((cat, ci)=>{
     const div = document.createElement('div');
     div.className = 'cat-setting';
     const catSubPct = subTotalPct(cat);
-    const subOverLimit = catSubPct > 100;
-    const subHintClass = subOverLimit ? 'sub-allocation-hint warning' : 'sub-allocation-hint';
+    const subInvalid = (cat.subcategories || []).length > 0 && catSubPct !== 100;
+    const subHintClass = subInvalid ? 'sub-allocation-hint warning' : 'sub-allocation-hint';
 
     let subsHtml = (cat.subcategories||[]).map((s,si)=>`
       <div class="sub-row-edit" data-si="${si}">
@@ -1320,7 +1249,7 @@ function renderSettings(){
           ${subAssigneeOpts(s.assigneeId)}
         </select>
         <div class="field-input-unit">
-          <input class="sub-pct-input ${subOverLimit?'error':''}" type="number" min="0" max="100" step="1" value="${s.percentage||0}" data-field="pct" data-ci="${ci}" data-si="${si}">
+          <input class="sub-pct-input ${subInvalid?'error':''}" type="number" min="0" max="100" step="1" value="${s.percentage||0}" data-field="pct" data-ci="${ci}" data-si="${si}">
           <span class="unit">%</span>
         </div>
         <button class="btn-del" data-del-sub="${si}" data-ci="${ci}" title="删除子项">✕</button>
@@ -1341,7 +1270,7 @@ function renderSettings(){
           <div class="field-group">
             <span class="field-label">比例</span>
             <div class="field-input-unit">
-              <input class="field-input ${rootOverLimit?'error':''}" type="number" min="0" max="100" step="1" value="${cat.percentage||0}" data-field="pct" data-ci="${ci}" style="width:70px">
+              <input class="field-input ${rootInvalid?'error':''}" type="number" min="0" max="100" step="1" value="${cat.percentage||0}" data-field="pct" data-ci="${ci}" style="width:70px">
               <span class="unit">%</span>
             </div>
           </div>
@@ -1399,8 +1328,8 @@ function renderSettings(){
       const f = e.target.dataset.field;
       if(f !== 'pct') return;
       data.categories[ci].percentage = parseWholePct(e.target.value);
-      normalizeCategoryPercentages(ci);
-      fullRender();
+      e.target.value = data.categories[ci].percentage;
+      updateOutputsOnly();
     });
     inp.addEventListener('keydown',e=>{
       if(e.key === 'Enter') e.target.blur();
@@ -1416,7 +1345,6 @@ function renderSettings(){
     btn.addEventListener('click',e=>{
       if(!confirm('确认删除此资金分类及其所有配置？')) return;
       data.categories.splice(+btn.dataset.delCat,1);
-      if(data.categories.length > 0) normalizeCategoryPercentages(0);
       fullRender();
     });
   });
@@ -1424,8 +1352,7 @@ function renderSettings(){
     btn.addEventListener('click',()=>{
       const ci = +btn.dataset.ci;
       if(!data.categories[ci].subcategories) data.categories[ci].subcategories=[];
-      const percentage = data.categories[ci].subcategories.length === 0 ? 100 : 0;
-      data.categories[ci].subcategories.push({id:genId(),name:'',percentage, assigneeId:''});
+      data.categories[ci].subcategories.push({id:genId(),name:'',percentage:0, assigneeId:''});
       fullRender();
     });
   });
@@ -1448,8 +1375,8 @@ function renderSettings(){
       const ci = +e.target.dataset.ci;
       const si = +e.target.dataset.si;
       data.categories[ci].subcategories[si].percentage = parseWholePct(e.target.value);
-      normalizeSubPercentages(ci, si);
-      fullRender();
+      e.target.value = data.categories[ci].subcategories[si].percentage;
+      updateOutputsOnly();
     });
     inp.addEventListener('keydown',e=>{
       if(e.key === 'Enter') e.target.blur();
@@ -1465,7 +1392,6 @@ function renderSettings(){
     btn.addEventListener('click',()=>{
       const ci = +btn.dataset.ci;
       data.categories[ci].subcategories.splice(+btn.dataset.delSub,1);
-      if((data.categories[ci].subcategories || []).length > 0) normalizeSubPercentages(ci, 0);
       fullRender();
     });
   });
@@ -1497,11 +1423,10 @@ document.getElementById('settings-toggle').addEventListener('click',()=>{
 // Add category
 document.getElementById('add-cat-btn').addEventListener('click',()=>{
   const colorIdx = data.categories.length % DEFAULT_COLORS.length;
-  const percentage = data.categories.length === 0 ? 100 : 0;
   data.categories.push({
     id: genId(),
     name: '新投资类目',
-    percentage,
+    percentage: 0,
     color: DEFAULT_COLORS[colorIdx],
     expectedReturn: 5,
     assigneeId: '',
@@ -1519,7 +1444,6 @@ document.getElementById('history-btn').addEventListener('click',()=>{
 // Init (async)
 (async()=>{
   data = normalizeLoadedData(await loadData());
-  normalizeAllPercentages();
   
   if(data.categories.length === 0){
     document.getElementById('settings-body').classList.add('open');
